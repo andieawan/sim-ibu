@@ -1,0 +1,8 @@
+{
+  "name": "SIM-IBU (SISTEM INFORMASI DAN MANAJEMEN - SMKS ISLAM BUSTANUL ULUM)",
+  "description": "Aplikasi Sistem Informasi dan Manajemen - SMKS Islam Bustanul Ulum.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

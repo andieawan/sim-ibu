@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- ============================================================================
+    SIM-IBU (SISTEM INFORMASI DAN MANAJEMEN - SMKS ISLAM BUSTANUL ULUM)
+    FILE: index.html
+    
+    Developer Note:
+    File ini adalah halaman HTML utama. Berisi tag <meta> dasar, pendaftaran PWA
+    (Progressive Web App) Service Worker, Loading Spinner sebelum React siap 
+    ter-mounting di <div id="root">, dan tag pemuatan module "src/main.tsx".
+    ============================================================================ -->
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>SIM-IBU - SMKS Islam Bustanul Ulum</title>
+    
+    <!-- PWA Settings -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#0f1219" />
+    
+    <!-- iOS support -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="SIM-IBU" />
+    <link rel="apple-touch-icon" href="/icon-192.jpg" />
+    <style>
+      #root:empty {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        background-color: #0f1219;
+      }
+      #root:empty::after {
+        content: "";
+        width: 32px;
+        height: 32px;
+        border: 4px solid #1e293b;
+        border-top-color: #3b82f6;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module">
+      window.__vite_plugin_react_preamble_installed__ = true;
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- Development-only cleanup for stale service workers -->
+    <script type="module">
+      if ('serviceWorker' in navigator && import.meta.env.DEV) {
+        navigator.serviceWorker.getRegistrations().then((registrations) => {
+          registrations.forEach((registration) => {
+            registration.unregister().then((success) => {
+              if (success) {
+                console.log('Unregistered stale service worker during dev startup.');
+              }
+            });
+          });
+        });
+      }
+    </script>
+
+    <!-- Service Worker Registration -->
+    <script type="module">
+      if ('serviceWorker' in navigator && import.meta.env.PROD) {
+        window.addEventListener('load', () => {
+          // Skip service worker registration inside iframes (like AI Studio preview panes)
+          // to prevent third-party cookie blocks which cause redirection gates on the server.
+          if (window.self !== window.top) {
+            console.log('Registrasi Service Worker dilewati di dalam iframe pratinjau AI Studio.');
+            return;
+          }
+
+          navigator.serviceWorker.register('/sw.js')
+            .then((registration) => {
+              console.log('SIM-IBU ServiceWorker terdaftar dengan scope:', registration.scope);
+            })
+            .catch((error) => {
+              console.error('Pendaftaran ServiceWorker gagal:', error);
+            });
+        });
+      }
+    </script>
+  </body>
+</html>
+

@@ -1,0 +1,701 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+/* Custom interactive themes */
+.theme-light {
+  --bg-main: #f1f5f9; /* slate-100 */
+  --bg-panel: #ffffff; /* white */
+  --bg-panel-hover: #f8fafc; /* slate-50 */
+  --bg-input: #ffffff;
+  --border-color: #cbd5e1; /* slate-300 */
+  --primary-color: #2563eb; /* blue-600 */
+  --primary-hover: #1d4ed8; /* blue-700 */
+  --primary-light: rgba(37, 99, 235, 0.08);
+  --primary-border: rgba(37, 99, 235, 0.25);
+  --text-main: #1f2937; /* gray-800 */
+  --text-muted: #4b5563; /* gray-600 */
+}
+
+/* Apply overrides conditionally to children of theme roots */
+.theme-light {
+  background-color: var(--bg-main) !important;
+  color: var(--text-main) !important;
+}
+
+/* 
+   ============================================================================
+   SISTEM REKONSILIASI TEMA ADAPTIF (LIGHT MODE)
+   Maksud Bisnis: Memastikan antarmuka sistem memiliki tingkat keterbacaan yang
+   tinggi dan kontras yang seimbang pada mode terang (Light Mode).
+   Aliran Data: Mendeteksi preferensi kelas '.theme-light' pada elemen root dan
+   menerjemahkan variabel latar belakang serta teks gelap.
+   ============================================================================
+*/
+
+/* Robust Attribute Selectors untuk warna latar belakang kontras tinggi */
+.theme-light [class*="bg-[#161b22]"],
+.theme-light [class*="bg-[#0f1219]"],
+.theme-light [class*="bg-[#1c2129]"],
+.theme-light [class*="bg-[#1a212d]"],
+.theme-light [class*="bg-[#111622]"],
+.theme-light [class*="bg-[#0b0e14]"],
+.theme-light [class*="bg-[#020617]"],
+.theme-light [class*="bg-[#121620]"],
+.theme-light [class*="bg-[#0a0d14]"],
+.theme-light [class*="bg-[#0c0f16]"],
+.theme-light [class*="bg-[#0d1118]"],
+.theme-light [class*="bg-[#0e121a]"],
+.theme-light [class*="bg-[#0c0e15]"],
+.theme-light [class*="bg-[#10141d]"],
+.theme-light [class*="bg-[#0e111a]"],
+.theme-light [class*="bg-[#0c0f17]"] {
+  background-color: var(--bg-panel) !important;
+}
+
+/* Mengubah warna kontainer utama agar mengikuti tema abu-abu terang */
+.theme-light [class*="bg-[#0b0e14]"] {
+  background-color: var(--bg-main) !important;
+}
+
+/* Penyesuaian gradien banner atas untuk mode terang */
+.theme-light [class*="bg-gradient-to-br"][class*="from-[#0f172a]"] {
+  background-image: linear-gradient(to bottom right, #f8fafc, #eff6ff, #f8fafc) !important;
+  border-color: var(--border-color) !important;
+}
+/* === AKHIR DARI SISTEM REKONSILIASI TEMA ADAPTIF === */
+
+.theme-light header[class*="bg-[#0f1219]"],
+.theme-light nav[class*="bg-[#0f1219]"],
+.theme-light [class*="sticky"][class*="bg-[#0f1219]"] {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* Hover states */
+.theme-light [class*="hover:bg-[#1c2129]"]:hover,
+.theme-light [class*="hover:bg-[#1a212d]"]:hover,
+.theme-light [class*="hover:bg-[#161b22]"]:hover,
+.theme-light [class*="hover:bg-[#11141d]"]:hover,
+.theme-light [class*="hover:bg-slate-800"]:hover {
+  background-color: #f1f5f9 !important;
+}
+
+/* Input, select, textarea overrides */
+.theme-light input,
+.theme-light select,
+.theme-light textarea {
+  background-color: #ffffff !important;
+  color: #1f2937 !important;
+  border-color: #cbd5e1 !important;
+}
+
+.theme-light input::placeholder,
+.theme-light textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+.theme-light select option {
+  background-color: #ffffff !important;
+  color: #1f2937 !important;
+}
+
+/* List/Modal containers and backgrounds */
+.theme-light .bg-slate-900,
+.theme-light .bg-slate-950,
+.theme-light .bg-slate-800,
+.theme-light .bg-slate-850 {
+  background-color: var(--bg-panel) !important;
+  color: var(--text-main) !important;
+}
+
+/* Text overrides in Light Mode */
+.theme-light .text-slate-100,
+.theme-light .text-slate-200,
+.theme-light .text-slate-300,
+.theme-light .text-slate-350,
+.theme-light .text-slate-50,
+.theme-light .text-white,
+.theme-light [class*="text-[#f1f5f9]"],
+.theme-light [class*="text-[#cdd9e5]"],
+.theme-light [class*="text-[#8fa0ba]"],
+.theme-light [class*="text-[#cbd5e1]"],
+.theme-light [class*="text-[#e2e8f0]"] {
+  color: var(--text-main) !important;
+}
+
+.theme-light .text-slate-400,
+.theme-light .text-slate-500,
+.theme-light .text-slate-550,
+.theme-light .text-slate-600 {
+  color: var(--text-muted) !important;
+}
+
+.theme-light .hover\:text-slate-100:hover,
+.theme-light .hover\:text-slate-200:hover,
+.theme-light .hover\:text-slate-300:hover,
+.theme-light .hover\:text-slate-205:hover,
+.theme-light .hover\:text-slate-350:hover,
+.theme-light .hover\:text-slate-355:hover {
+  color: var(--primary-color) !important;
+}
+
+.theme-light .border-slate-800,
+.theme-light .border-slate-800\/80,
+.theme-light .border-slate-800\/60,
+.theme-light .border-slate-800\/50,
+.theme-light .border-slate-850,
+.theme-light .border-slate-700,
+.theme-light [class*="border-slate-800"],
+.theme-light [class*="border-slate-850"],
+.theme-light [class*="border-slate-900"],
+.theme-light [class*="border-[#"] {
+  border-color: var(--border-color) !important;
+}
+
+/* High Contrast state adjustments */
+.theme-light .text-emerald-400,
+.theme-light .text-emerald-450 {
+  color: #059669 !important;
+}
+.theme-light .text-rose-400,
+.theme-light .text-rose-450,
+.theme-light .text-rose-455 {
+  color: #dc2626 !important;
+}
+.theme-light .text-amber-400,
+.theme-light .text-amber-500 {
+  color: #d97706 !important;
+}
+
+/* Solid Blue elements */
+.theme-light .bg-blue-600 {
+  background-color: var(--primary-color) !important;
+}
+
+.theme-light .hover\:bg-blue-500:hover {
+  background-color: var(--primary-hover) !important;
+}
+
+.theme-light .text-blue-400,
+.theme-light .text-blue-450 {
+  color: var(--primary-color) !important;
+}
+
+.theme-light .border-blue-500\/30,
+.theme-light .border-blue-500\/20 {
+  border-color: var(--primary-border) !important;
+}
+
+.theme-light .bg-blue-900\/30,
+.theme-light .bg-blue-900\/40,
+.theme-light .bg-blue-600\/20 {
+  background-color: var(--primary-light) !important;
+  color: var(--primary-color) !important;
+}
+
+/* Light overlays for badges/icons */
+.theme-light .bg-amber-950\/40,
+.theme-light .bg-amber-500\/10,
+.theme-light .bg-amber-500\/30 {
+  background-color: rgba(245, 158, 11, 0.1) !important;
+}
+.theme-light .border-amber-500\/10,
+.theme-light .border-amber-500\/20 {
+  border-color: rgba(245, 158, 11, 0.3) !important;
+}
+
+.theme-light .bg-emerald-950\/40,
+.theme-light .bg-emerald-500\/10,
+.theme-light .bg-emerald-500\/30 {
+  background-color: rgba(16, 185, 129, 0.1) !important;
+}
+.theme-light .border-emerald-500\/10,
+.theme-light .border-emerald-500\/20 {
+  border-color: rgba(16, 185, 129, 0.3) !important;
+}
+
+.theme-light .bg-rose-950\/20,
+.theme-light .bg-rose-950\/40,
+.theme-light .bg-rose-500\/10 {
+  background-color: rgba(244, 63, 94, 0.1) !important;
+}
+.theme-light .border-rose-500\/10,
+.theme-light .border-rose-500\/20 {
+  border-color: rgba(244, 63, 94, 0.3) !important;
+}
+
+.theme-light .bg-indigo-950\/40,
+.theme-light .bg-indigo-500\/10 {
+  background-color: rgba(99, 102, 241, 0.1) !important;
+}
+.theme-light .border-indigo-500\/10,
+.theme-light .border-indigo-500\/20 {
+  border-color: rgba(99, 102, 241, 0.3) !important;
+}
+
+/* Nav overrides */
+.theme-light nav .text-slate-400 {
+  color: #6b7280 !important;
+}
+.theme-light nav .text-blue-400 {
+  color: #2563eb !important;
+}
+.theme-light nav .bg-blue-600\/10 {
+  background-color: rgba(37, 99, 235, 0.1) !important;
+}
+
+/* Hide spin-button arrows globally on number inputs, keeping them number-only fields */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* Standard Dark Theme values are the default CSS bindings. theme-light overrides standard tags. */
+
+/* --- Theme Emerald --- */
+.theme-emerald .text-blue-400,
+.theme-emerald .text-blue-450,
+.theme-emerald nav .text-blue-400 {
+  color: #10b981 !important;
+}
+.theme-emerald .bg-blue-600 {
+  background-color: #059669 !important;
+}
+.theme-emerald .hover\:bg-blue-500:hover {
+  background-color: #10b981 !important;
+}
+.theme-emerald .border-blue-500\/20,
+.theme-emerald .border-blue-500\/30,
+.theme-emerald .focus\:border-blue-500:focus {
+  border-color: rgba(16, 185, 129, 0.3) !important;
+}
+.theme-emerald .bg-blue-900\/30,
+.theme-emerald .bg-blue-900\/40,
+.theme-emerald .bg-blue-600\/20,
+.theme-emerald nav .bg-blue-600\/10 {
+  background-color: rgba(16, 185, 129, 0.15) !important;
+}
+.theme-emerald ::selection {
+  background-color: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+}
+.theme-emerald .ring-blue-600\/20 {
+  --tw-ring-color: rgba(16, 185, 129, 0.2) !important;
+}
+
+/* --- Theme Rose --- */
+.theme-rose .text-blue-400,
+.theme-rose .text-blue-450,
+.theme-rose nav .text-blue-400 {
+  color: #f43f5e !important;
+}
+.theme-rose .bg-blue-600 {
+  background-color: #e11d48 !important;
+}
+.theme-rose .hover\:bg-blue-500:hover {
+  background-color: #f43f5e !important;
+}
+.theme-rose .border-blue-500\/20,
+.theme-rose .border-blue-500\/30,
+.theme-rose .focus\:border-blue-500:focus {
+  border-color: rgba(244, 63, 94, 0.3) !important;
+}
+.theme-rose .bg-blue-900\/30,
+.theme-rose .bg-blue-900\/40,
+.theme-rose .bg-blue-600\/20,
+.theme-rose nav .bg-blue-600\/10 {
+  background-color: rgba(244, 63, 94, 0.15) !important;
+}
+.theme-rose ::selection {
+  background-color: rgba(244, 63, 94, 0.2);
+  color: #f43f5e;
+}
+.theme-rose .ring-blue-600\/20 {
+  --tw-ring-color: rgba(244, 63, 94, 0.2) !important;
+}
+
+/* --- Theme Indigo --- */
+.theme-indigo .text-blue-400,
+.theme-indigo .text-blue-450,
+.theme-indigo nav .text-blue-400 {
+  color: #8b5cf6 !important;
+}
+.theme-indigo .bg-blue-600 {
+  background-color: #7c3aed !important;
+}
+.theme-indigo .hover\:bg-blue-500:hover {
+  background-color: #8b5cf6 !important;
+}
+.theme-indigo .border-blue-500\/20,
+.theme-indigo .border-blue-500\/30,
+.theme-indigo .focus\:border-blue-500:focus {
+  border-color: rgba(139, 92, 246, 0.3) !important;
+}
+.theme-indigo .bg-blue-900\/30,
+.theme-indigo .bg-blue-900\/40,
+.theme-indigo .bg-blue-600\/20,
+.theme-indigo nav .bg-blue-600\/10 {
+  background-color: rgba(139, 92, 246, 0.15) !important;
+}
+.theme-indigo ::selection {
+  background-color: rgba(139, 92, 246, 0.2);
+  color: #8b5cf6;
+}
+.theme-indigo .ring-blue-600\/20 {
+  --tw-ring-color: rgba(139, 92, 246, 0.2) !important;
+}
+
+/* --- Theme Flat --- */
+.theme-flat .text-blue-400,
+.theme-flat .text-blue-450,
+.theme-flat nav .text-blue-400 {
+  color: #1abc9c !important; /* Turquoise */
+}
+.theme-flat .bg-blue-600 {
+  background-color: #1abc9c !important; /* Turquoise */
+}
+.theme-flat .hover\:bg-blue-500:hover {
+  background-color: #16a085 !important; /* Green Sea */
+}
+.theme-flat .border-blue-500\/20,
+.theme-flat .border-blue-500\/30,
+.theme-flat .focus\:border-blue-500:focus {
+  border-color: rgba(26, 188, 156, 0.4) !important;
+}
+.theme-flat .bg-blue-900\/30,
+.theme-flat .bg-blue-900\/40,
+.theme-flat .bg-blue-600\/20,
+.theme-flat nav .bg-blue-600\/10 {
+  background-color: rgba(26, 188, 156, 0.15) !important;
+}
+.theme-flat ::selection {
+  background-color: rgba(26, 188, 156, 0.3);
+  color: #16a085;
+}
+.theme-flat .ring-blue-600\/20 {
+  --tw-ring-color: rgba(26, 188, 156, 0.3) !important;
+}
+
+
+/* ============================================================================
+   ADMIN DASHBOARD WEB - PREMIUM DESIGN SYSTEM OVERRIDES (FLAT & MINIMALIST)
+   ============================================================================ */
+
+/* --- 1. Custom Ultra-Thin Scrollbar --- */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.15);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.3);
+}
+
+/* --- 2. Advanced Form Controls Upgrade --- */
+input[type="text"],
+input[type="password"],
+input[type="number"],
+input[type="date"],
+select,
+textarea {
+  font-family: var(--font-sans), system-ui, sans-serif !important;
+  background-color: #0e121a !important;
+  border: 1px solid rgba(148, 163, 184, 0.12) !important;
+  border-radius: 12px !important;
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  text-shadow: none !important;
+  color: #f1f5f9 !important;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+/* Light theme specific inputs override */
+.theme-light input[type="text"],
+.theme-light input[type="password"],
+.theme-light input[type="number"],
+.theme-light input[type="date"],
+.theme-light select,
+.theme-light textarea {
+  background-color: #f8fafc !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+  color: #0f172a !important;
+}
+
+/* Consistent Focus Effects aligned to Active Themes */
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none !important;
+  background-color: #0d1118 !important;
+  border-color: rgba(59, 130, 246, 0.8) !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important;
+}
+
+.theme-emerald input:focus, .theme-emerald select:focus, .theme-emerald textarea:focus {
+  border-color: rgba(16, 185, 129, 0.8) !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15) !important;
+}
+.theme-rose input:focus, .theme-rose select:focus, .theme-rose textarea:focus {
+  border-color: rgba(244, 63, 94, 0.8) !important;
+  box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.15) !important;
+}
+.theme-indigo input:focus, .theme-indigo select:focus, .theme-indigo textarea:focus {
+  border-color: rgba(139, 92, 246, 0.8) !important;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15) !important;
+}
+.theme-flat input:focus, .theme-flat select:focus, .theme-flat textarea:focus {
+  border-color: rgba(26, 188, 156, 0.8) !important;
+  box-shadow: 0 0 0 3px rgba(26, 188, 156, 0.15) !important;
+}
+.theme-light input:focus, .theme-light select:focus, .theme-light textarea:focus {
+  background-color: #ffffff !important;
+}
+
+/* Custom indicator for select dropdowns to clean up native layouts */
+select {
+  appearance: none !important;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 12px center !important;
+  background-size: 16px !important;
+  padding-right: 36px !important;
+}
+.theme-light select {
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+}
+
+/* --- 3. Datatable-grade Tables & Grids --- */
+table {
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  width: 100% !important;
+}
+
+thead th {
+  font-family: var(--font-sans), system-ui, sans-serif !important;
+  background-color: rgba(15, 23, 42, 0.4) !important;
+  color: #94a3b8 !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+  padding: 12px 16px !important;
+  border-bottom: 2px solid rgba(148, 163, 184, 0.08) !important;
+}
+
+.theme-light thead th {
+  background-color: rgba(241, 245, 249, 0.9) !important;
+  color: #475569 !important;
+  border-bottom-color: rgba(15, 23, 42, 0.08) !important;
+}
+
+td {
+  padding: 14px 16px !important;
+  font-size: 13px !important;
+  color: #cbd5e1 !important;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.05) !important;
+  vertical-align: middle !important;
+  transition: background-color 0.15s ease !important;
+}
+
+.theme-light td {
+  color: #334155 !important;
+  border-bottom-color: rgba(15, 23, 42, 0.05) !important;
+}
+
+tbody tr {
+  transition: all 0.2s ease !important;
+}
+
+tbody tr:hover td {
+  background-color: rgba(148, 163, 184, 0.03) !important;
+}
+
+/* Table Card Wrapper */
+.overflow-x-auto {
+  border-radius: 14px !important;
+  border: 1px solid rgba(148, 163, 184, 0.08) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1) !important;
+}
+
+.theme-light .overflow-x-auto {
+  border-color: rgba(15, 23, 42, 0.08) !important;
+}
+
+/* --- 4. Beautifully Crafted Buttons --- */
+button,
+.btn {
+  font-family: var(--font-sans), system-ui, sans-serif !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+button:not(:disabled):active {
+  transform: scale(0.97) !important;
+}
+
+/* Pill buttons are standard elements formatted into sleek admin elements */
+.rounded-3xl,
+.rounded-2xl {
+  border-radius: 16px !important; /* Makes bento boxes / panels crisper */
+}
+
+/* --- 5. Interactive Cards & Bento Layouts --- */
+.bg-\[\#161b22\],
+.bg-\[\#0f1219\] {
+  background-color: #11141e !important;
+  border: 1px solid rgba(148, 163, 184, 0.07) !important;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2) !important;
+}
+
+.theme-light .bg-\[\#161b22\],
+.theme-light .bg-\[\#0f1219\] {
+  background-color: #ffffff !important;
+  border: 1px solid rgba(15, 23, 42, 0.07) !important;
+  box-shadow: 0 4px 25px rgba(15, 23, 42, 0.04) !important;
+}
+
+/* Interactive card hover feedbacks */
+.hover\:border-slate-700:hover {
+  border-color: rgba(59, 130, 246, 0.3) !important;
+}
+
+/* --- 6. Flat Status Badge Refinement --- */
+.bg-emerald-500\/10,
+.bg-emerald-950\/40,
+.bg-emerald-600\/10 {
+  background-color: rgba(16, 185, 129, 0.08) !important;
+  color: #10b981 !important;
+  border: 1px solid rgba(16, 185, 129, 0.18) !important;
+}
+
+.bg-amber-500\/10,
+.bg-amber-950\/40,
+.bg-amber-600\/10 {
+  background-color: rgba(245, 158, 11, 0.08) !important;
+  color: #f59e0b !important;
+  border: 1px solid rgba(245, 158, 11, 0.18) !important;
+}
+
+.bg-rose-500\/10,
+.bg-rose-950\/20,
+.bg-rose-950\/40 {
+  background-color: rgba(244, 63, 94, 0.08) !important;
+  color: #f43f5e !important;
+  border: 1px solid rgba(244, 63, 94, 0.18) !important;
+}
+
+.bg-blue-500\/10,
+.bg-blue-900\/30,
+.bg-blue-900\/40 {
+  background-color: rgba(59, 130, 246, 0.08) !important;
+  color: #3b82f6 !important;
+  border: 1px solid rgba(59, 130, 246, 0.18) !important;
+}
+
+.bg-indigo-500\/10,
+.bg-indigo-950\/40 {
+  background-color: rgba(99, 102, 241, 0.08) !important;
+  color: #6366f1 !important;
+  border: 1px solid rgba(99, 102, 241, 0.18) !important;
+}
+
+/* --- 7. Float Premium Bottom Nav Dock --- */
+nav.fixed.bottom-0 {
+  bottom: 12px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  width: calc(100% - 24px) !important;
+  max-width: 640px !important;
+  border-radius: 20px !important;
+  border: 1px solid rgba(148, 163, 184, 0.1) !important;
+  background-color: rgba(15, 18, 27, 0.85) !important;
+  backdrop-filter: blur(14px) !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6) !important;
+  height: 64px !important;
+  padding-left: 10px !important;
+  padding-right: 10px !important;
+}
+
+.theme-light nav.fixed.bottom-0 {
+  background-color: rgba(255, 255, 255, 0.85) !important;
+  border: 1px solid rgba(15, 23, 42, 0.1) !important;
+  box-shadow: 0 10px 40px rgba(15, 23, 42, 0.12) !important;
+}
+
+nav.fixed.bottom-0 button {
+  border-top-width: 0px !important;
+  border-radius: 12px !important;
+  margin: 6px 3px !important;
+  height: calc(100% - 12px) !important;
+  transition: all 0.25s ease !important;
+}
+
+nav.fixed.bottom-0 button.text-blue-500 {
+  background-color: rgba(59, 130, 246, 0.1) !important;
+  color: #3b82f6 !important;
+}
+
+.theme-emerald nav.fixed.bottom-0 button.text-blue-500 {
+  background-color: rgba(16, 185, 129, 0.1) !important;
+  color: #10b981 !important;
+}
+.theme-rose nav.fixed.bottom-0 button.text-blue-500 {
+  background-color: rgba(244, 63, 94, 0.1) !important;
+  color: #f43f5e !important;
+}
+.theme-indigo nav.fixed.bottom-0 button.text-blue-500 {
+  background-color: rgba(139, 92, 246, 0.1) !important;
+  color: #8b5cf6 !important;
+}
+.theme-flat nav.fixed.bottom-0 button.text-blue-500 {
+  background-color: rgba(26, 188, 156, 0.1) !important;
+  color: #1abc9c !important;
+}
+
+/* Padding-bottom adjustment for main content container so it is not hidden under the nav-dock */
+html, body {
+  /* Mencegah area sisa halaman berwarna putih di luar viewport saat overscroll */
+  background-color: #0b0e14 !important;
+  color: #e2e8f0 !important;
+}
+
+html.theme-light, html.theme-light body {
+  background-color: #f1f5f9 !important;
+  color: #1f2937 !important;
+}
+
+html.theme-emerald, html.theme-emerald body,
+html.theme-rose, html.theme-rose body,
+html.theme-indigo, html.theme-indigo body,
+html.theme-flat, html.theme-flat body {
+  background-color: #0b0e14 !important;
+}
+
+body {
+  padding-bottom: 96px !important;
+}
+
+/* Ensure nice headers with professional display letter-spacing */
+h1, h2, h3, h4 {
+  letter-spacing: -0.02em !important;
+}
+
+

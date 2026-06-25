@@ -1,0 +1,12 @@
+{
+  "appId": "com.sigup.app",
+  "appName": "SiGup - Sistem Guru Pintar",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https",
+    "allowNavigation": [
+      "ais-pre-36l33zcyea34gey64uy2fg-621027569204.asia-east1.run.app",
+      "ais-dev-36l33zcyea34gey64uy2fg-621027569204.asia-east1.run.app"
+    ]
+  }
+}
