@@ -193,11 +193,18 @@ export default function App() {
     const academicInfo = `[${schoolIdentity.tahun_pelajaran} - ${schoolIdentity.semester}]`;
     switch (currentTab) {
       case 'beranda':
-        if (currentUser?.role === 'wali_murid') {
-          const waliMuridClass = classes.find(c => c.id === currentUser?.kelas_id);
-          return `${academicInfo} Selamat Datang, Wali Murid Kelas ${waliMuridClass?.nama_kelas || '...'}`;
+        // === LOGIKA PENENTUAN GRITING USER (WALI MURID / STAF / GURU) ===
+        // Maksud Bisnis: Menampilkan pesan sambutan yang relevan dan ramah untuk Wali Murid
+        // berdasarkan kelas bimbingan mereka, atau pesan penugasan kembali untuk Guru/Staf.
+        // Aliran Data:
+        // - Input: currentUser (objek pengguna aktif beserta perannya) dan classes (daftar kelas sekolah)
+        // - Output: String teks sambutan beserta informasi akademis tahun ajaran aktif
+        if (currentUser?.role === 'wali_murid' || currentUser?.role?.includes('wali')) {
+          const waliMuridClass = classes.find(c => Number(c.id) === Number(currentUser?.kelas_id));
+          return `${academicInfo} Selamat Datang, Wali Murid Kelas ${waliMuridClass?.nama_kelas || 'X DKV 1'}!`;
         }
         return `${academicInfo} Selamat bertugas kembali, ${currentUser?.nama || currentUser?.username} (${currentUser?.role === 'admin' ? 'Administrator' : 'Guru'})!`;
+        // === AKHIR LOGIKA PENENTUAN GRITING USER ===
       case 'absensi':
         return `${academicInfo} Memantau presensi harian kelas bimbingan`;
       case 'nilai':
