@@ -4,7 +4,7 @@ import fs from 'fs';
 import bcrypt from 'bcryptjs';
 
 // ============================================================================
-// SISTEM GURU PINTAR (sim-ibu) - DATABASE CONNECTION & MIGRATION SCRIPT
+// SISTEM GURU PINTAR (SiGup) - DATABASE CONNECTION & MIGRATION SCRIPT
 // FILE: server/db.ts
 // 
 // Developer Note:
@@ -98,7 +98,7 @@ class PostgreSQLDatabaseProvider implements DatabaseProvider {
         port: parseInt(process.env.DB_PORT || '5432'),
         user: process.env.DB_USER || 'postgres',
         password: process.env.DB_PASSWORD || 'postgres',
-        database: process.env.DB_NAME || 'sim-ibu_db',
+        database: process.env.DB_NAME || 'sigup_db',
         ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
       });
       console.log('Successfully connected to Postgres Pool [Lazy loaded pg].');
@@ -185,7 +185,7 @@ class MySQLDatabaseProvider implements DatabaseProvider {
         port: parseInt(process.env.DB_PORT || '3306'),
         user: process.env.DB_USER || 'root',
         password: process.env.DB_PASSWORD || 'root',
-        database: process.env.DB_NAME || 'sim-ibu_db',
+        database: process.env.DB_NAME || 'sigup_db',
       });
       console.log('Successfully connected to MySQL Pool [Lazy loaded mysql2].');
     } catch (err: any) {
@@ -263,19 +263,21 @@ export const dbGet = <T = any>(sql: string, params: any[] = []): Promise<T | und
 };
 
 // Establish database connection on startup
-export function connectDatabase(): Promise<void> {
-  return activeProvider.connect().then(() => {
+export function connectDatabase() {
+  activeProvider.connect().then(() => {
     if (activeProvider.name !== 'sqlite') {
       console.log(`Initializing & Seeding target Database Engine tables: [${activeProvider.name}]...`);
-      return initializeDatabase().catch((initErr) => {
+      initializeDatabase().catch((initErr) => {
         console.error(`Failed executing initialization script on active engine: ${activeProvider.name}`, initErr);
       });
     }
   }).catch((err) => {
     console.error(`Failed to establish database connection for provider: ${activeProvider.name}`, err);
-    throw err;
   });
 }
+
+// Connect immediately
+connectDatabase();
 
 // Create tables & Seed dummy data
 export async function initializeDatabase() {

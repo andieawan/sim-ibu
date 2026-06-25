@@ -3,11 +3,6 @@ import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 
-const originalFetch = window.fetch.bind(window);
-window.fetch = (input: RequestInfo, init?: RequestInit) => {
-  return originalFetch(input, { ...init, credentials: 'include' });
-};
-
 /**
  * ============================================================================
  * SIM-IBU (SISTEM INFORMASI DAN MANAJEMEN - SMKS ISLAM BUSTANUL ULUM) - ENTRY POINT REACT

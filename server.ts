@@ -1,45 +1,16 @@
 import dotenv from 'dotenv';
-import path from 'path';
-dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+dotenv.config();
 
 import express from 'express';
-import net from 'net';
+import path from 'path';
 import compression from 'compression'; // For Performance scaling
 import { createServer as createViteServer } from 'vite';
-import { db, connectDatabase } from './server/db';
+import { db } from './server/db';
 import apiRouter from './server/routes';
 
 const app = express();
-const DEFAULT_PORT = Number(process.env.PORT || process.env.APP_PORT || 3000);
+const PORT = Number(process.env.PORT || process.env.APP_PORT || 3000);
 const HOST = process.env.HOST || '0.0.0.0';
-
-async function isPortAvailable(port: number, host: string) {
-  return new Promise<boolean>((resolve) => {
-    const server = net.createServer();
-    server.once('error', (err: NodeJS.ErrnoException) => {
-      if (err.code === 'EADDRINUSE') {
-        resolve(false);
-      } else {
-        resolve(false);
-      }
-    });
-    server.once('listening', () => {
-      server.close(() => resolve(true));
-    });
-    server.listen(port, host);
-  });
-}
-
-async function resolvePort(preferredPort: number, host: string, maxAttempts = 10) {
-  let port = preferredPort;
-  for (let attempt = 0; attempt <= maxAttempts; attempt += 1) {
-    if (await isPortAvailable(port, host)) {
-      return port;
-    }
-    port += 1;
-  }
-  return 0; // let the OS choose a free port if all preferred ports fail
-}
 
 // Improve API Server Performance & Load Times
 app.use(compression());
@@ -81,7 +52,22 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.text({ type: 'text/plain', limit: '10mb' }));
 
-// Register Modular API router before Vite middleware so API routes are resolved first in dev.
+// Serve static assets from the public folder directly (both dev & prod)
+// This guarantees that sw.js, manifest.json, and icon files are served with the correct headers without redirects.
+app.use(express.static(path.join(process.cwd(), 'public'), {
+  maxAge: '0',
+  setHeaders: (res, filepath) => {
+    if (filepath.endsWith('sw.js')) {
+      res.setHeader('Service-Worker-Allowed', '/');
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Content-Type', 'application/javascript');
+    } else if (filepath.endsWith('manifest.json')) {
+      res.setHeader('Content-Type', 'application/json');
+    }
+  }
+}));
+
+// Register Modular API router
 app.use('/api', apiRouter);
 
 // Database logging indicator
@@ -90,24 +76,9 @@ console.log('Database instance mapped to central server runtime.');
 // --- INTEGRATING VITE DEV SERVER / PRODUCTION STATIC FILES ---
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
-    // In development mode, load Vite as middleware as the first middleware.
-    // This is required so Vite can properly handle HMR, module requests, and /@vite/client.
-    const vitePort = Number(process.env.HMR_PORT || process.env.PORT || DEFAULT_PORT);
-    
-    // For HMR client connection, use localhost if HOST is 0.0.0.0 (server binding address)
-    // because browsers cannot connect to 0.0.0.0
-    const hmrHost = (process.env.HOST === '0.0.0.0' || !process.env.HOST) ? 'localhost' : process.env.HOST;
-    
+    // In development mode, load Vite as middleware
     const vite = await createViteServer({
-      server: {
-        middlewareMode: true,
-        hmr: process.env.DISABLE_HMR === 'true' ? false : {
-          protocol: 'ws',
-          host: hmrHost,
-          port: vitePort,
-          clientPort: vitePort,
-        },
-      },
+      server: { middlewareMode: true },
       appType: 'spa',
     });
     app.use(vite.middlewares);
@@ -128,28 +99,11 @@ async function startServer() {
     console.log('Serving production build from:', distPath);
   }
 
-  let port = await resolvePort(DEFAULT_PORT, HOST);
-  if (!port) {
-    port = 0;
-  }
-
-  try {
-    await connectDatabase();
-  } catch (err) {
-    console.error('Database initialization failed. Server will not start.', err);
-    process.exit(1);
-  }
-
-  const listener = app.listen(port, HOST, () => {
-    const address = listener.address();
-    const actualPort = address && typeof address === 'object' ? address.port : port;
-    console.log(`sim-ibu Full-Stack application is active on http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${actualPort}`);
-    if (actualPort !== DEFAULT_PORT) {
-      console.warn(`Preferred port ${DEFAULT_PORT} was unavailable; using port ${actualPort} instead.`);
-    }
+  app.listen(PORT, HOST, () => {
+    console.log(`SiGup Full-Stack application is active on http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
   }).on('error', (err) => {
     if ((err as NodeJS.ErrnoException).code === 'EADDRINUSE') {
-      console.error(`Port ${port} is already in use. This should not happen after port resolution.`);
+      console.error(`Port ${PORT} is already in use. Set a different PORT in your environment or stop the process using it.`);
       process.exit(1);
     }
     throw err;

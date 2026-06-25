@@ -1,4 +1,4 @@
-# sim-ibu - Sistem Guru Pintar 🎓
+# SiGup - Sistem Guru Pintar 🎓
 
 Aplikasi manajemen absensi dan nilai sekolah modern dengan multi-aktor (Guru, Admin, Wali Kelas, Wali Murid), terintegrasi dengan kecerdasan KKM Pintar, analisis data lokal, serta perlindungan **Keamanan Tingkat Lanjut (Encrypted Cookies/Iron Session, Rate-Limiting, Bcrypt)**. 
 
@@ -6,7 +6,7 @@ Aplikasi manajemen absensi dan nilai sekolah modern dengan multi-aktor (Guru, Ad
 
 ## 📌 Deskripsi Proyek
 
-**sim-ibu** dirancang untuk membantu para pendidik, administrator sekolah, dan orang tua/wali murid dalam proses mengelola, memantau administrasi kelas secara cepat, andal, dan aman. Dengan antarmuka yang intuitif dan responsif, aplikasi ini mendukung multi-role untuk pendaftaran absensi, kalkulasi kelayakan nilai berdasarkan Kriteria Ketuntasan Minimal (KKM), pemantauan wali kelas, validasi absensi wali kelas, serta portal pemantauan transparan untuk Wali Murid.
+**SiGup** dirancang untuk membantu para pendidik, administrator sekolah, dan orang tua/wali murid dalam proses mengelola, memantau administrasi kelas secara cepat, andal, dan aman. Dengan antarmuka yang intuitif dan responsif, aplikasi ini mendukung multi-role untuk pendaftaran absensi, kalkulasi kelayakan nilai berdasarkan Kriteria Ketuntasan Minimal (KKM), pemantauan wali kelas, validasi absensi wali kelas, serta portal pemantauan transparan untuk Wali Murid.
 
 ---
 
@@ -50,7 +50,7 @@ Aplikasi ini menggunakan arsitektur **Full-Stack SPA terpadu (Express.js + React
 
 Aplikasi memiliki perlindungan internal modern:
 * **Encrypted Cookies (Iron Session)**: Semua sesi pengguna diproteksi dengan cookie terenkripsi yang aman (menghindari kerentanan berbasis token pada storage client-side).
-* **Bcrypt Password Hash Auto-Upgrade**: Basis data sim-ibu bermigrasi dari teks mentah ke `bcrypt` cryptographically secure password otomatis (seamless hashing) di latar belakang (Background) ketika pengguna sukses otentikasi pertama kalinya. Terdapat mitigasi kerentanan *SQL Injection/Bruteforce* serta pencegahan eksfiltrasi hash *Rainbow Database*.
+* **Bcrypt Password Hash Auto-Upgrade**: Basis data SiGup bermigrasi dari teks mentah ke `bcrypt` cryptographically secure password otomatis (seamless hashing) di latar belakang (Background) ketika pengguna sukses otentikasi pertama kalinya. Terdapat mitigasi kerentanan *SQL Injection/Bruteforce* serta pencegahan eksfiltrasi hash *Rainbow Database*.
 * **Limitasi Kecepatan Mutasi (Rate-Limiter / Anti-Spam)**: Panggilan API `login`, mutasi *password*, dan form-post dipayungi oleh limitator IP/Session agar server tak mudah lumpuh *DDoS Auth* maupun serangan kamus kata sandi otomatis (Automated credential stuffing).
 
 ---

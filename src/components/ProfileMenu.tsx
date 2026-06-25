@@ -45,9 +45,9 @@ export default function ProfileMenu({ user, onLogout, onClose, theme, onThemeCha
     try {
       const res = await fetch('/api/auth/profile', {
         method: 'PUT',
-        credentials: 'include',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.token}`
         },
         body: JSON.stringify({
           nama: formData.nama,

@@ -84,7 +84,7 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
       const link = document.createElement("a");
       link.href = url;
       
-      let filename = "daftar_siswa_sim-ibu_all.xlsx";
+      let filename = "daftar_siswa_sigup_all.xlsx";
       if (selectedClassFilter) {
         const targetClassObj = classes.find(c => String(c.id) === String(selectedClassFilter));
         if (targetClassObj) {
@@ -289,7 +289,11 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
     setLoadingUsers(true);
     try {
       const res = await fetch('/api/admin/users', {
-        credentials: 'include'
+        headers: {
+          'Authorization': `Bearer ${currentUser.token || ''}`,
+          'X-User-Id': String(currentUser.id),
+          'X-User-Role': currentUser.role
+        }
       });
       if (res.ok) {
         const data = await res.json();
@@ -310,7 +314,11 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
     setLoadingStats(true);
     try {
       const res = await fetch('/api/admin/summary', {
-        credentials: 'include'
+        headers: {
+          'Authorization': `Bearer ${currentUser.token || ''}`,
+          'X-User-Id': String(currentUser.id),
+          'X-User-Role': currentUser.role
+        }
       });
       if (res.ok) {
         const data = await res.json();
@@ -687,9 +695,11 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
 
       const res = await fetch(url, {
         method,
-        credentials: 'include',
         headers: { 
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${currentUser.token || ''}`,
+          'X-User-Id': String(currentUser.id),
+          'X-User-Role': currentUser.role
         },
         body: JSON.stringify(payload)
       });
@@ -740,7 +750,11 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
     try {
       const res = await fetch(`/api/admin/users/${id}`, { 
         method: 'DELETE',
-        credentials: 'include'
+        headers: {
+          'Authorization': `Bearer ${currentUser.token || ''}`,
+          'X-User-Id': String(currentUser.id),
+          'X-User-Role': currentUser.role
+        }
       });
       const data = await res.json();
       if (!res.ok) {
@@ -797,7 +811,11 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
     try {
       const res = await fetch('/api/admin/reset-db', { 
         method: 'POST',
-        credentials: 'include'
+        headers: {
+          'Authorization': `Bearer ${currentUser.token || ''}`,
+          'X-User-Id': String(currentUser.id),
+          'X-User-Role': currentUser.role
+        }
       });
       const data = await res.json();
       if (res.ok) {

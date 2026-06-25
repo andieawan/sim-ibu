@@ -53,24 +53,9 @@
     </script>
     <script type="module" src="/src/main.tsx"></script>
     
-    <!-- Development-only cleanup for stale service workers -->
-    <script type="module">
-      if ('serviceWorker' in navigator && import.meta.env.DEV) {
-        navigator.serviceWorker.getRegistrations().then((registrations) => {
-          registrations.forEach((registration) => {
-            registration.unregister().then((success) => {
-              if (success) {
-                console.log('Unregistered stale service worker during dev startup.');
-              }
-            });
-          });
-        });
-      }
-    </script>
-
     <!-- Service Worker Registration -->
-    <script type="module">
-      if ('serviceWorker' in navigator && import.meta.env.PROD) {
+    <script>
+      if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           // Skip service worker registration inside iframes (like AI Studio preview panes)
           // to prevent third-party cookie blocks which cause redirection gates on the server.

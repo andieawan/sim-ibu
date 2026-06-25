@@ -14,39 +14,20 @@ export interface MySessionData {
 import fs from 'fs';
 import path from 'path';
 
-// Lazy initialize session options to allow dotenv to load first
-let sessionOptions: any = null;
-
-function getSessionOptions() {
-  if (sessionOptions) return sessionOptions;
-  
-  const COOKIE_PASSWORD = process.env.COOKIE_PASSWORD;
-  if (!COOKIE_PASSWORD || COOKIE_PASSWORD.length < 32) {
-    throw new Error(
-      'COOKIE_PASSWORD environment variable is required and must be at least 32 characters long.'
-    );
-  }
-
-  sessionOptions = {
-    password: COOKIE_PASSWORD,
-    cookieName: 'si-gup-session',
-    cookieOptions: {
-      secure: process.env.NODE_ENV === 'production',
-      httpOnly: true,
-      sameSite: 'lax' as const,
-      maxAge: 24 * 60 * 60,
-    },
-  };
-
-  return sessionOptions;
-}
+const sessionOptions = {
+  password: process.env.COOKIE_PASSWORD || 'complex_password_at_least_32_characters_long',
+  cookieName: 'si-gup-session',
+  cookieOptions: {
+    secure: process.env.NODE_ENV === 'production',
+  },
+};
 
 // ============================================================================
-// SISTEM GURU PINTAR (sim-ibu) - CORE API ROUTER
+// SISTEM GURU PINTAR (SiGup) - CORE API ROUTER
 // FILE: server/routes.ts
 // 
 // Halo Developer! 
-// File ini adalah inti dari seluruh bisnis backend aplikasi sim-ibu.
+// File ini adalah inti dari seluruh bisnis backend aplikasi SiGup.
 // Semua interaksi database yang dipanggil dari Antarmuka React, bermuara di file ini.
 // Di sini Anda akan menemukan Endpoint: 
 // - Authentication JWT (Auth Login) & Penggantian Password
@@ -157,7 +138,7 @@ function loginRateLimiter(req: any, res: any, next: any) {
 }
 
 async function requireAdmin(req: any, res: any, next: any) {
-  const session = await getIronSession<MySessionData>(req, res, getSessionOptions());
+  const session = await getIronSession<MySessionData>(req, res, sessionOptions);
 
   if (!session.user) {
     return res.status(401).json({ error: 'Akses ditolak: Sesi tidak ditemukan. Harap login kembali.' });
@@ -183,7 +164,7 @@ router.use('/system', requireAdmin);
 
 // Middleware to authenticate general users using Iron Session
 async function authenticateSession(req: any, res: any, next: any) {
-  const session = await getIronSession<MySessionData>(req, res, getSessionOptions());
+  const session = await getIronSession<MySessionData>(req, res, sessionOptions);
   
   if (!session.user) {
     return res.status(401).json({ error: 'Akses ditolak: Sesi tidak ditemukan. Harap login kembali.' });
@@ -1363,7 +1344,7 @@ router.post('/auth/login', loginRateLimiter, async (req, res) => {
     loginAttempts.delete(ip);
 
     // Set Iron Session
-    const session = await getIronSession<MySessionData>(req, res, getSessionOptions());
+    const session = await getIronSession<MySessionData>(req, res, sessionOptions);
     session.user = { id: user.id, username: user.username, role: user.role };
     await session.save();
 
@@ -1378,37 +1359,6 @@ router.post('/auth/login', loginRateLimiter, async (req, res) => {
       siswa_nis: user.siswa_nis || null,
       kelas_id: user.kelas_id || null,
       message: 'Login berhasil'
-    });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-router.get('/auth/me', async (req, res) => {
-  try {
-    const session = await getIronSession<MySessionData>(req, res, getSessionOptions());
-    if (!session.user) {
-      return res.status(401).json({ error: 'Sesi tidak aktif' });
-    }
-
-    const user = await dbGet<{ id: number; username: string; nama: string; role: string; nip: string; jabatan: string; siswa_nis?: string | null; kelas_id?: number | null }>(
-      'SELECT id, username, nama, role, nip, jabatan, siswa_nis, kelas_id FROM pengguna WHERE id = ?',
-      [session.user.id]
-    );
-
-    if (!user) {
-      return res.status(404).json({ error: 'Pengguna tidak ditemukan' });
-    }
-
-    res.json({
-      id: user.id,
-      username: user.username,
-      nama: user.nama,
-      role: user.role,
-      nip: user.nip || '',
-      jabatan: user.jabatan || '',
-      siswa_nis: user.siswa_nis || null,
-      kelas_id: user.kelas_id || null
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -1751,11 +1701,10 @@ const MASTER_PATCHES = [
   }
 ];
 
-const allowedPatchIds = new Set(MASTER_PATCHES.map(p => p.id));
-
 // GET /api/patches - Ambil semua patch sistem dan status aplikasinya
 router.get('/patches', async (req, res) => {
   try {
+    // Ambil patch yang sudah berhasil diaplikasikan dari database
     const dbPatches = await dbAll('SELECT * FROM patches');
     const appliedMap = new Map(dbPatches.map(p => [p.id, p]));
 
@@ -1772,7 +1721,20 @@ router.get('/patches', async (req, res) => {
       };
     });
 
-    res.json(masterList);
+    const masterIds = new Set(MASTER_PATCHES.map(p => p.id));
+    const customList = dbPatches
+      .filter(p => !masterIds.has(p.id))
+      .map(p => ({
+        id: p.id,
+        nama_patch: p.nama_patch,
+        deskripsi: p.deskripsi,
+        kategori: p.kategori,
+        status: p.status,
+        applied_at: p.applied_at,
+        is_custom: true
+      }));
+
+    res.json([...masterList, ...customList]);
   } catch (err: any) {
     res.status(500).json({ error: 'Gagal mengambil data patch: ' + err.message });
   }
@@ -1782,35 +1744,40 @@ router.get('/patches', async (req, res) => {
 router.post('/patches/upload', async (req, res) => {
   const { id, nama_patch, deskripsi, kategori, sql_statements } = req.body;
 
-  if (!id || !allowedPatchIds.has(id)) {
-    return res.status(400).json({ error: 'ID patch tidak valid. Hanya patch internal yang diizinkan.' });
-  }
-
-  if (sql_statements) {
-    return res.status(400).json({ error: 'Custom SQL statements tidak diperbolehkan pada endpoint ini.' });
+  if (!nama_patch) {
+    return res.status(400).json({ error: 'Nama patch wajib diisi' });
   }
 
   try {
-    const patchDef = MASTER_PATCHES.find(p => p.id === id)!;
-    const desc = deskripsi || patchDef.deskripsi;
-    const cat = kategori || patchDef.kategori;
+    const patchId = id || `PATCH-CUSTOM-${Date.now()}`;
+    const desc = deskripsi || 'Patch kustom yang diunggah oleh administrator.';
+    const cat = kategori || 'Database';
+
+    let sqlArr: string[] = [];
+    if (Array.isArray(sql_statements)) {
+      sqlArr = sql_statements;
+    } else if (typeof sql_statements === 'string') {
+      sqlArr = sql_statements.split(';').map(s => s.trim()).filter(Boolean);
+    }
+
+    const sqlStr = JSON.stringify(sqlArr);
 
     await dbRun(
       'INSERT OR REPLACE INTO patches (id, nama_patch, deskripsi, kategori, status, applied_at, sql_statements) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [patchDef.id, patchDef.nama_patch, desc, cat, 'pending', null, null]
+      [patchId, nama_patch, desc, cat, 'pending', null, sqlStr]
     );
 
     res.json({
       success: true,
-      message: `Patch "${patchDef.nama_patch}" dengan ID ${patchDef.id} berhasil diregistrasikan sebagai internal.`,
+      message: `Patch "${nama_patch}" dengan ID ${patchId} berhasil diunggah dan siap diterapkan.`,
       patch: {
-        id: patchDef.id,
-        nama_patch: patchDef.nama_patch,
+        id: patchId,
+        nama_patch,
         deskripsi: desc,
         kategori: cat,
         status: 'pending',
         applied_at: null,
-        is_custom: false
+        is_custom: true
       }
     });
   } catch (err: any) {
@@ -1821,44 +1788,83 @@ router.post('/patches/upload', async (req, res) => {
 // POST /api/patches/apply - Jalankan aplikasi patch sistem secara real-time
 router.post('/patches/apply', async (req, res) => {
   const { patchId } = req.body;
-  if (!patchId || !allowedPatchIds.has(patchId)) {
-    return res.status(400).json({ error: 'Patch ID tidak valid atau tidak diizinkan.' });
+  if (!patchId) {
+    return res.status(400).json({ error: 'ID Patch wajib disertakan' });
   }
 
-  const patch = MASTER_PATCHES.find(p => p.id === patchId);
+  let patch = MASTER_PATCHES.find(p => p.id === patchId);
+  let isCustom = false;
+  let customRecord: any = null;
+
   if (!patch) {
-    return res.status(404).json({ error: 'Patch internal tidak ditemukan.' });
+    // Periksa jika ini merupakan patch kustom dari database
+    customRecord = await dbGet('SELECT * FROM patches WHERE id = ?', [patchId]);
+    if (!customRecord) {
+      return res.status(404).json({ error: 'Patch tidak ditemukan dalam repositori master maupun kustom.' });
+    }
+    patch = {
+      id: customRecord.id,
+      nama_patch: customRecord.nama_patch,
+      deskripsi: customRecord.deskripsi,
+      kategori: customRecord.kategori,
+      status_default: 'pending'
+    };
+    isCustom = true;
   }
 
   try {
-    if (patchId === 'PATCH-001') {
-      await dbRun('REINDEX');
-      await dbRun('VACUUM');
-      await dbRun('CREATE INDEX IF NOT EXISTS idx_siswa_kelas_id ON siswa(kelas_id)');
-      await dbRun('CREATE INDEX IF NOT EXISTS idx_absensi_kelas_id ON absensi(kelas_id)');
-    } else if (patchId === 'PATCH-002') {
-      try {
-        await dbRun("ALTER TABLE absensi ADD COLUMN is_approved_by_walikelas INTEGER DEFAULT 0");
-      } catch (e) {
-        // Ignore if column already exists
+    if (isCustom && customRecord) {
+      // Jalankan seluruh statement SQL kustom berurutan
+      if (customRecord.sql_statements) {
+        let statements: string[] = [];
+        try {
+          statements = JSON.parse(customRecord.sql_statements);
+        } catch (e) {
+          statements = customRecord.sql_statements.split(';').map((s: string) => s.trim()).filter(Boolean);
+        }
+        for (const stmt of statements) {
+          if (stmt.trim()) {
+            await dbRun(stmt);
+          }
+        }
       }
-    } else if (patchId === 'PATCH-003') {
-      await dbRun("UPDATE aktivitas_nilai SET kkm = 75 WHERE kkm IS NULL OR kkm < 50");
-    } else if (patchId === 'PATCH-051') {
-      console.log('Security patch 051 applied successfully.');
+    } else {
+      // Jalankan logika patch riil sesuai dengan ID masing-masing!
+      if (patchId === 'PATCH-001') {
+        // Jalankan optimasi database SQLite nyata!
+        await dbRun('REINDEX');
+        await dbRun('VACUUM');
+        // Buat ulang indeks jika belum ada
+        await dbRun('CREATE INDEX IF NOT EXISTS idx_siswa_kelas_id ON siswa(kelas_id)');
+        await dbRun('CREATE INDEX IF NOT EXISTS idx_absensi_kelas_id ON absensi(kelas_id)');
+      } else if (patchId === 'PATCH-002') {
+        // Fix database approval schema inconsistencies
+        try {
+          await dbRun("ALTER TABLE absensi ADD COLUMN is_approved_by_walikelas INTEGER DEFAULT 0");
+        } catch (e) {
+          // Abaikan jika kolom sudah ada
+        }
+      } else if (patchId === 'PATCH-003') {
+        // Update kkm default jika ada yang kurang dari 75
+        await dbRun("UPDATE aktivitas_nilai SET kkm = 75 WHERE kkm IS NULL OR kkm < 50");
+      } else if (patchId === 'PATCH-051') {
+        // Melakukan refresh session settings atau logs
+        console.log('Security patch 051 applied successfully.');
+      }
     }
 
     const timestamp = new Date().toISOString();
+    // Simpan status patch di database agar persisten
     await dbRun(
       'INSERT OR REPLACE INTO patches (id, nama_patch, deskripsi, kategori, status, applied_at, sql_statements) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [
-        patch.id,
-        patch.nama_patch,
-        patch.deskripsi,
-        patch.kategori,
-        'applied',
+        patch.id, 
+        patch.nama_patch, 
+        patch.deskripsi, 
+        patch.kategori, 
+        'applied', 
         timestamp,
-        null
+        isCustom ? customRecord.sql_statements : null
       ]
     );
 

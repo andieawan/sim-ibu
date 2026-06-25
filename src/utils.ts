@@ -20,7 +20,7 @@ export const formatIndoDate = (dateStr: string | null | undefined): string => {
 // Cache simple GET requests to avoid Rate exceeded errors
 const cache = new Map<string, { data: any, timestamp: number }>();
 
-export const fetchWithCache = async (url: string, ttl: number = 5000, headers?: HeadersInit) => {
+export const fetchWithCache = async (url: string, ttl: number = 5000, headers: HeadersInit = {}) => {
   const now = Date.now();
   if (cache.has(url)) {
     const cached = cache.get(url)!;

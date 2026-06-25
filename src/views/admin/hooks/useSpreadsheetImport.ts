@@ -93,11 +93,18 @@ export function useSpreadsheetImport(onSuccess?: () => void) {
     setImportStatus({ type: '', message: 'Sedang mengimpor data...' });
     
     try {
+      const saved = sessionStorage.getItem('simibu_user');
+      let token = '';
+      if (saved) {
+        const u = JSON.parse(saved);
+        token = u?.token || '';
+      }
+
       const res = await fetch(`/api/import-siswa/${selectedClassForImport}`, {
         method: 'POST',
-        credentials: 'include',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
         },
         body: JSON.stringify({
           kelas_id: Number(selectedClassForImport),

@@ -1,6 +1,6 @@
 {
-  "appId": "com.simibu.app",
-  "appName": "sim-ibu - Sistem Guru Pintar",
+  "appId": "com.sigup.app",
+  "appName": "SiGup - Sistem Guru Pintar",
   "webDir": "dist",
   "server": {
     "androidScheme": "https",

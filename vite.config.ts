@@ -1,5 +1,5 @@
 // ============================================================================
-// SISTEM GURU PINTAR (sim-ibu) - VITE BUNDLER CONFIGURATION
+// SISTEM GURU PINTAR (SiGup) - VITE BUNDLER CONFIGURATION
 // FILE: vite.config.ts
 // 
 // Developer Note:
@@ -21,15 +21,10 @@ export default defineConfig(() => {
       },
     },
     server: {
-      host: process.env.HOST || '0.0.0.0',
-      port: Number(process.env.PORT || 3000),
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      // Do not modify—file watching is disabled to prevent flickering during agent edits.
+      // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR === 'true' ? false : {
-        protocol: 'ws',
-        host: process.env.HOST || 'localhost',
-        port: Number(process.env.HMR_PORT || process.env.PORT || 3000),
-        clientPort: Number(process.env.HMR_PORT || process.env.PORT || 3000),
+        clientPort: 3000 // Menyelaraskan port jika HMR aktif di lokal
       },
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
