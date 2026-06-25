@@ -1,5 +1,5 @@
 // ============================================================================
-// SISTEM GURU PINTAR (SiGup) - VITE BUNDLER CONFIGURATION
+// SISTEM GURU PINTAR (sim-ibu) - VITE BUNDLER CONFIGURATION
 // FILE: vite.config.ts
 // 
 // Developer Note:

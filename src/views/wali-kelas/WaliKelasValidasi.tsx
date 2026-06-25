@@ -29,18 +29,7 @@ interface DetailRec {
 }
 
 export default function WaliKelasValidasi({ kelasId }: WaliKelasValidasiProps) {
-  const getAuthHeader = () => {
-    try {
-      const saved = sessionStorage.getItem('simibu_user');
-      if (saved) {
-        const u = JSON.parse(saved);
-        if (u && u.token) {
-          return { 'Authorization': `Bearer ${u.token}` };
-        }
-      }
-    } catch (_) {}
-    return {};
-  };
+  const getAuthHeader = () => ({ });
 
   const [history, setHistory] = useState<AbsensiHistory[]>([]);
   const [loading, setLoading] = useState(false);

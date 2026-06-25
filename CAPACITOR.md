@@ -1,6 +1,6 @@
-# 📱 Panduan Konversi Aplikasi SiGup ke Android Native dengan Capacitor
+# 📱 Panduan Konversi Aplikasi sim-ibu ke Android Native dengan Capacitor
 
-Sistem web **SiGup (Sistem Guru Pintar)** ini telah kami siapkan sepenuhnya agar dapat dikonversi menjadi aplikasi Android Native menggunakan **Capacitor**. Semua dependency utama (`@capacitor/core`, `@capacitor/cli`, dan `@capacitor/android`) beserta file konfigurasi `capacitor.config.json` telah berhasil dipasang di project Anda.
+Sistem web **sim-ibu (Sistem Guru Pintar)** ini telah kami siapkan sepenuhnya agar dapat dikonversi menjadi aplikasi Android Native menggunakan **Capacitor**. Semua dependency utama (`@capacitor/core`, `@capacitor/cli`, dan `@capacitor/android`) beserta file konfigurasi `capacitor.config.json` telah berhasil dipasang di project Anda.
 
 Berikut adalah panduan lengkap cara melakukan konversi ke APK baik menggunakan metode **Remote Web App** (Sangat Direkomendasikan untuk Full-stack) maupun **Local Client Asset**.
 
@@ -17,7 +17,7 @@ Sebelum mulai, pastikan komputer lokal Anda sudah terpasang:
 
 ## 🚀 Jalur 1: Metode Hybrid Remote Wrapper (Sangat Direkomendasikan)
 
-Karena aplikasi SiGup dirancang sebagai aplikasi full-stack (memiliki Node.js backend dan basis data SQLite `sekolah.db` di server), metode paling praktis dan stabil adalah mengarahkannya ke server cloud aktif Anda. Dengan metode ini, pembaruan aplikasi web akan otomatis terupdate di dalam aplikasi HP tanpa harus melakukan build ulang APK!
+Karena aplikasi sim-ibu dirancang sebagai aplikasi full-stack (memiliki Node.js backend dan basis data SQLite `sekolah.db` di server), metode paling praktis dan stabil adalah mengarahkannya ke server cloud aktif Anda. Dengan metode ini, pembaruan aplikasi web akan otomatis terupdate di dalam aplikasi HP tanpa harus melakukan build ulang APK!
 
 ### Langkah-Langkah:
 
@@ -28,8 +28,8 @@ Karena aplikasi SiGup dirancang sebagai aplikasi full-stack (memiliki Node.js ba
    Buka file `/capacitor.config.json` di komputer Anda, tambahkan properti `"url"` di dalam blok `"server"`. Contoh:
    ```json
    {
-     "appId": "com.sigup.app",
-     "appName": "SiGup - Sistem Guru Pintar",
+     "appId": "com.simibu.app",
+     "appName": "sim-ibu - Sistem Guru Pintar",
      "webDir": "dist",
      "server": {
        "url": "https://ais-pre-36l33zcyea34gey64uy2fg-621027569204.asia-east1.run.app",
@@ -78,8 +78,8 @@ Jika Anda ingin aplikasi bekerja secara lokal menggunakan file HTML, CSS, dan JS
 1. Pastikan properti `"url"` **tidak ada** atau dihapus dari `/capacitor.config.json` Anda agar dia meload file lokal dari folder `dist`:
    ```json
    {
-     "appId": "com.sigup.app",
-     "appName": "SiGup - Sistem Guru Pintar",
+     "appId": "com.simibu.app",
+     "appName": "sim-ibu - Sistem Guru Pintar",
      "webDir": "dist"
    }
    ```
@@ -100,7 +100,7 @@ Jika Anda ingin aplikasi bekerja secara lokal menggunakan file HTML, CSS, dan JS
 ## 💡 Tips Tambahan untuk Aplikasi Android Native
 
 * **Mengaktifkan Fitur Kamera & File (Izin Aplikasi):**
-  Aplikasi SiGup memiliki fitur seperti Import CSV. Agar pengguna bisa menginput file dari HP mereka, pastikan file `AndroidManifest.xml` (berada di folder `android/app/src/main/AndroidManifest.xml`) memuat izin akses media:
+  Aplikasi sim-ibu memiliki fitur seperti Import CSV. Agar pengguna bisa menginput file dari HP mereka, pastikan file `AndroidManifest.xml` (berada di folder `android/app/src/main/AndroidManifest.xml`) memuat izin akses media:
   ```xml
   <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />

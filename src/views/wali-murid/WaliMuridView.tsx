@@ -49,9 +49,7 @@ export default function WaliMuridView({ currentUser, theme = 'dark' }: WaliMurid
     setError(null);
     try {
       const res = await fetch(`/api/wali-murid/monitoring/${currentUser.kelas_id}`, {
-        headers: {
-          'Authorization': `Bearer ${currentUser.token || ''}`
-        }
+        credentials: 'include'
       });
       if (!res.ok) {
         throw new Error('Gagal memuat data monitoring kelas anak Anda.');
@@ -74,9 +72,7 @@ export default function WaliMuridView({ currentUser, theme = 'dark' }: WaliMurid
     setLoadingDetails(true);
     try {
       const res = await fetch(`/api/absensi-detail/${absensiId}`, {
-        headers: {
-          'Authorization': `Bearer ${currentUser.token || ''}`
-        }
+        credentials: 'include'
       });
       if (res.ok) {
         const jsonData = await res.json();

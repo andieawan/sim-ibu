@@ -45,17 +45,8 @@ export default function App() {
     semester: 'Ganjil'
   });
 
-  const [currentUser, setCurrentUser] = useState<Pengguna | null>(() => {
-    const saved = sessionStorage.getItem('simibu_user');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (_) {
-        return null;
-      }
-    }
-    return null;
-  });
+  const [currentUser, setCurrentUser] = useState<Pengguna | null>(null);
+  const [loadingAuth, setLoadingAuth] = useState<boolean>(true);
 
   const [currentTab, setCurrentTab] = useState<string>('beranda');
   const [classes, setClasses] = useState<Kelas[]>([]);
@@ -70,13 +61,6 @@ export default function App() {
   // FAB overlay menu state
   const [showFabMenu, setShowFabMenu] = useState<boolean>(false);
 
-  const getAuthHeader = (): HeadersInit | undefined => {
-    if (currentUser?.token) {
-      return { Authorization: `Bearer ${currentUser.token}` };
-    }
-    return undefined;
-  };
-
   const fetchSchoolIdentity = async () => {
     try {
       const data = await fetchWithCache('/api/school-identity', 60000); // 1 minute cache
@@ -89,7 +73,7 @@ export default function App() {
   const fetchClasses = async () => {
     setLoadingClasses(true);
     try {
-      const data = await fetchWithCache('/api/kelas', 60000, getAuthHeader()); // 1 minute cache
+      const data = await fetchWithCache('/api/kelas', 60000); // 1 minute cache
       setClasses(data);
       if (data.length > 0 && !selectedClassId) {
         setSelectedClassId(data[0].id);
@@ -117,8 +101,24 @@ export default function App() {
         console.error('Error fetching system config:', err);
       }
     };
+
+    const restoreSession = async () => {
+      try {
+        const res = await fetch('/api/auth/me');
+        if (res.ok) {
+          const user = await res.json();
+          setCurrentUser(user);
+        }
+      } catch (err) {
+        console.error('Error restoring session:', err);
+      } finally {
+        setLoadingAuth(false);
+      }
+    };
+
     fetchConfig();
     fetchSchoolIdentity();
+    restoreSession();
   }, []);
 
   useEffect(() => {
@@ -208,13 +208,20 @@ export default function App() {
     }
   };
 
+  if (loadingAuth) {
+    return (
+      <div className="min-h-screen bg-[#0b0e14] flex items-center justify-center text-slate-200">
+        <p className="text-sm font-medium">Memeriksa sesi pengguna...</p>
+      </div>
+    );
+  }
+
   if (!currentUser) {
     return (
       <LoginView
         appEnv={appEnv}
         onLoginSuccess={(user) => {
           setCurrentUser(user);
-          sessionStorage.setItem('simibu_user', JSON.stringify(user));
         }}
       />
     );
@@ -412,11 +419,9 @@ export default function App() {
             onUpdateUser={(updatedUser) => {
               const fullUser = { ...currentUser, ...updatedUser };
               setCurrentUser(fullUser);
-              sessionStorage.setItem('simibu_user', JSON.stringify(fullUser));
             }}
             onLogout={() => {
               setCurrentUser(null);
-              sessionStorage.removeItem('simibu_user');
               setCurrentTab('beranda');
               setShowProfileMenu(false);
             }}
