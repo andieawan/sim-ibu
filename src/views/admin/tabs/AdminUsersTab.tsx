@@ -23,14 +23,7 @@ export default function AdminUsersTab(props: AdminTabProps) {
     downloadSampleCSV, exportStudentsToExcel, filteredSiswa, setScheduleAlert, setPatchAlert
   } = props;
 
-  const {
-    guruFile, guruPreview, parsedGuruList, guruImportStatus, handleGuruFileChange, handleUploadGuru, downloadSampleGuruExcel
-  } = useMultiSpreadsheetImport(() => {
-    // Callback ketika impor guru sukses, refresh halaman agar state ter-render ulang bersih dari database
-    setTimeout(() => {
-      window.location.reload();
-    }, 1500);
-  });
+  // Fitur Impor Guru secara massal via Excel telah dipindahkan dan dipusatkan ke tab "Upload"
 
   return (
     <div className="space-y-6">
@@ -239,105 +232,24 @@ export default function AdminUsersTab(props: AdminTabProps) {
             </div>
       </div>
 
-      {/* SPREADSHEET BULK GURU UPLOAD SECTION */}
-      {/* Maksud Bisnis: Menyediakan form unggah data guru massal via Excel untuk mempermudah pendaftaran pengajar baru */}
-      <div className="bg-[#161b22] p-6 rounded-3xl border border-slate-800 space-y-5 shadow-2xl relative overflow-hidden">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* INFORMASI KONSOLIDASI MENU IMPOR DATA */}
+      {/* Maksud Bisnis: Memberitahu administrator bahwa seluruh fitur impor data (Siswa, Guru, Jadwal, Wali Kelas) */}
+      {/* telah digabung ke tab Upload untuk efisiensi workflow kerja mereka. */}
+      <div className="bg-[#161b22] border border-slate-800 p-6 rounded-3xl shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl">
+            <UserCheck className="w-6 h-6 text-indigo-400" />
+          </div>
           <div>
-            <h4 className="text-base font-bold text-slate-100 flex items-center gap-2">
-              <Upload className="w-5 h-5 text-indigo-400" />
-              <span>Unggah Daftar Akun Guru (Spreadsheet Excel / XLSX)</span>
-            </h4>
-            <p className="text-slate-400 text-xs mt-0.5">Daftarkan hingga puluhan guru baru ke database server secara massal.</p>
-          </div>
-          <button 
-            onClick={downloadSampleGuruExcel}
-            className="flex items-center space-x-1.5 text-xs text-indigo-400 bg-indigo-900/30 border border-indigo-500/30 px-3 py-2 rounded-xl hover:bg-indigo-900/50 font-bold transition cursor-pointer self-start sm:self-auto shrink-0"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Unduh Format Guru (.xlsx)</span>
-          </button>
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-slate-400 block">Ambil File Spreadsheet (.xlsx, .xls, .csv)</label>
-          <div className="relative">
-            <input
-              type="file"
-              id="admin-guru-file-input"
-              accept=".xlsx,.xls,.csv"
-              onChange={handleGuruFileChange}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-            />
-            <div className="w-full bg-[#0f1219] border border-slate-800 rounded-xl px-4 py-3 flex items-center justify-between text-xs text-[#8fa0ba]">
-              <span className="truncate font-medium max-w-[400px] text-slate-300">
-                {guruFile ? guruFile.name : 'Pilih file excel / csv guru...'}
-              </span>
-              <Upload className="w-4 h-4 text-slate-500" />
-            </div>
+            <h5 className="font-bold text-slate-100 text-sm">Impor Guru Massal Terpusat</h5>
+            <p className="text-xs text-slate-400 mt-0.5 leading-normal">
+              Seluruh modul impor akun guru via file Excel (.xlsx) kini disatukan di bawah tab menu utama <strong className="text-blue-400">Upload</strong>.
+            </p>
           </div>
         </div>
-
-        {/* Guru File Parser Preview */}
-        {guruPreview.length > 0 && (
-          <div className="bg-[#0f1219] p-4 rounded-2xl border border-slate-800 space-y-2 animate-in fade-in duration-350">
-            <span className="text-2xs font-bold uppercase tracking-wider text-indigo-500">Pratinjau Data Guru (Maks. 5 baris pertama)</span>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="text-slate-500 border-b border-slate-800">
-                    <th className="pb-1.5 font-medium">Nama Lengkap</th>
-                    <th className="pb-1.5 font-medium">Username</th>
-                    <th className="pb-1.5 font-medium">Role</th>
-                    <th className="pb-1.5 font-medium">NIP</th>
-                    <th className="pb-1.5 font-medium">Jabatan</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800">
-                  {guruPreview.map((item, idx) => (
-                    <tr key={idx} className="text-slate-300">
-                      <td className="py-2 font-semibold text-slate-200">{item.nama}</td>
-                      <td className="py-2 font-mono text-slate-400">{item.username}</td>
-                      <td className="py-2">
-                        <span className="px-2 py-0.5 rounded-full text-3xs font-bold bg-indigo-900/40 text-indigo-400 border border-indigo-500/20">
-                          {item.role}
-                        </span>
-                      </td>
-                      <td className="py-2 font-mono text-slate-400">{item.nip || '-'}</td>
-                      <td className="py-2 text-slate-400">{item.jabatan || '-'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        <button
-          onClick={handleUploadGuru}
-          disabled={!guruFile}
-          className={`w-full py-3 rounded-xl font-bold flex items-center justify-center space-x-2 shadow-sm transition duration-300 text-xs ${
-            guruFile
-              ? 'bg-indigo-600 text-white hover:bg-indigo-500 cursor-pointer'
-              : 'bg-[#111622] border border-slate-850 text-slate-500 cursor-not-allowed'
-          }`}
-        >
-          <Upload className="w-4 h-4" />
-          <span>Unggah Spreadsheet Guru ke Database</span>
-        </button>
-
-        {guruImportStatus.message && (
-          <div className={`p-4 rounded-xl border text-xs flex items-start space-x-2.5 ${
-            guruImportStatus.type === 'success'
-              ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-400'
-              : 'bg-rose-950/20 border-rose-500/30 text-rose-450'
-          }`}>
-            <CheckCircle2 className={`w-4 h-4 mt-0.5 shrink-0 ${
-              guruImportStatus.type === 'success' ? 'text-emerald-500' : 'text-rose-500'
-            }`} />
-            <span>{guruImportStatus.message}</span>
-          </div>
-        )}
+        <div className="text-2xs font-mono font-bold text-indigo-400 bg-indigo-950/40 px-3 py-1.5 border border-indigo-500/10 rounded-xl shrink-0">
+          STATUS: AKTIF DI MENU UPLOAD
+        </div>
       </div>
     </div>
   );

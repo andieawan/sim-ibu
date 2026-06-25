@@ -153,19 +153,42 @@ class PostgreSQLDatabaseProvider implements DatabaseProvider {
 
   translateSql(sql: string): string {
     let pgSql = sql;
-    // 1. Convert SQLite Auto-increment to Postgres SERIAL
+    // ============================================================================
+    // TRANSLASI QUERY SQLITE KE POSTGRESQL (ADAPTER PATTERN)
+    // Maksud Bisnis: Memastikan kueri SQL yang ditulis dengan dialek SQLite dapat dieksekusi
+    // di mesin PostgreSQL produksi tanpa perubahan kode di sisi layanan/routes.
+    // Aliran Data:
+    // - Input: Kueri SQL mentah berbasis SQLite (misalnya: INTEGER PRIMARY KEY AUTOINCREMENT)
+    // - Output: Kueri SQL yang kompatibel dengan standar PostgreSQL (misalnya: SERIAL PRIMARY KEY)
+    // ============================================================================
+    
+    // 1. Ubah Auto-increment SQLite menjadi SERIAL PostgreSQL
     pgSql = pgSql.replace(/INTEGER PRIMARY KEY AUTOINCREMENT/gi, 'SERIAL PRIMARY KEY');
-    // 2. Convert standard SQLite datetime function to PostgreSQL standard
+    
+    // 2. Ubah fungsi datetime SQLite menjadi CURRENT_TIMESTAMP standar PostgreSQL
     pgSql = pgSql.replace(/datetime\('now'/gi, "CURRENT_TIMESTAMP");
-    // 3. Convert INSERT OR REPLACE INTO detail_nilai TO ON CONFLICT (aktivitas_id, siswa_nis) DO UPDATE
+    
+    // 3. Ubah perintah INSERT OR REPLACE khas SQLite pada detail_nilai menjadi ON CONFLICT DO UPDATE PostgreSQL
     if (/INSERT OR REPLACE INTO detail_nilai/i.test(pgSql)) {
       pgSql = pgSql.replace(
         /INSERT OR REPLACE INTO detail_nilai \(([^)]+)\) VALUES \(([^)]+)\)/i,
         (_, cols, vals) => `INSERT INTO detail_nilai (${cols}) VALUES (${vals}) ON CONFLICT(aktivitas_id, siswa_nis) DO UPDATE SET nilai = EXCLUDED.nilai, catatan = EXCLUDED.catatan`
       );
     }
-    // 4. Convert general INSERT OR REPLACE to plain INSERT with conflict bypass or ignore if not suited
+    
+    // 4. Ubah sisa perintah INSERT OR REPLACE menjadi INSERT INTO biasa
     pgSql = pgSql.replace(/INSERT OR REPLACE INTO/gi, 'INSERT INTO');
+
+    // 5. Otomatis menambahkan klausa 'RETURNING id' untuk semua perintah INSERT di PostgreSQL,
+    // kecuali untuk tabel 'siswa' dan 'patches' yang tidak menggunakan kolom kunci otomatis 'id'.
+    // Hal ini sangat penting agar pgRun dapat mengembalikan ID baris baru yang berhasil dimasukkan.
+    if (/INSERT INTO/i.test(pgSql) && !/RETURNING/i.test(pgSql)) {
+      if (!/\bsiswa\b/i.test(pgSql) && !/\bpatches\b/i.test(pgSql)) {
+        pgSql = pgSql + " RETURNING id";
+      }
+    }
+    
+    // === AKHIR DARI LOGIKA TRANSLASI QUERY ===
     return pgSql;
   }
 }
@@ -446,27 +469,49 @@ export async function initializeDatabase() {
       )
     `);
 
-    // Migrate existing dates with dashes to slashes in absensi and aktivitas_nilai tables
+    // ============================================================================
+    // MIGRASI DIAGNOSTIK & DEFENSIVE COLUMN ADDITION (MULTI-ENGINE COMPATIBLE)
+    // Maksud Bisnis: Memigrasikan format tanggal lama agar seragam menggunakan garis miring ('/'),
+    // serta menjamin kolom-kolom baru seperti 'is_approved_by_walikelas' dan 'sql_statements'
+    // ditambahkan dengan aman baik di SQLite maupun PostgreSQL tanpa memicu kegagalan startup.
+    // ============================================================================
     try {
       await dbRun("UPDATE absensi SET tanggal = REPLACE(tanggal, '-', '/') WHERE tanggal LIKE '%-%'");
       await dbRun("UPDATE aktivitas_nilai SET tanggal = REPLACE(tanggal, '-', '/') WHERE tanggal LIKE '%-%'");
       
-      // Migrate: Add is_approved_by_walikelas to absensi if not exists
-      const tableInfo = await dbAll("PRAGMA table_info(absensi)");
-      const hasIsApprovedCol = tableInfo.some((col: any) => col.name === 'is_approved_by_walikelas');
-      if (!hasIsApprovedCol) {
-        await dbRun("ALTER TABLE absensi ADD COLUMN is_approved_by_walikelas INTEGER DEFAULT 0");
-      }
+      if (activeProvider.name === 'sqlite') {
+        // --- LOGIK KHUSUS ENGINE SQLITE ---
+        // Menggunakan PRAGMA table_info untuk memeriksa kolom secara aman sebelum melakukan ALTER TABLE
+        const tableInfo = await dbAll("PRAGMA table_info(absensi)");
+        const hasIsApprovedCol = tableInfo.some((col: any) => col.name === 'is_approved_by_walikelas');
+        if (!hasIsApprovedCol) {
+          await dbRun("ALTER TABLE absensi ADD COLUMN is_approved_by_walikelas INTEGER DEFAULT 0");
+        }
 
-      // Migrate: Add sql_statements to patches table if not exists
-      const patchesTableInfo = await dbAll("PRAGMA table_info(patches)");
-      const hasSqlStatements = patchesTableInfo.some((col: any) => col.name === 'sql_statements');
-      if (!hasSqlStatements) {
-        await dbRun("ALTER TABLE patches ADD COLUMN sql_statements TEXT");
+        const patchesTableInfo = await dbAll("PRAGMA table_info(patches)");
+        const hasSqlStatements = patchesTableInfo.some((col: any) => col.name === 'sql_statements');
+        if (!hasSqlStatements) {
+          await dbRun("ALTER TABLE patches ADD COLUMN sql_statements TEXT");
+        }
+      } else {
+        // --- LOGIK KHUSUS ENGINE POSTGRESQL / MYSQL ---
+        // Mencoba langsung menambahkan kolom baru dengan mengabaikan error jika kolom sudah terdaftar
+        try {
+          await dbRun("ALTER TABLE absensi ADD COLUMN is_approved_by_walikelas INTEGER DEFAULT 0");
+        } catch (colErr) {
+          // Abaikan jika kolom sudah ada
+        }
+
+        try {
+          await dbRun("ALTER TABLE patches ADD COLUMN sql_statements TEXT");
+        } catch (colErr) {
+          // Abaikan jika kolom sudah ada
+        }
       }
     } catch (e) {
       console.error('Migration error:', e);
     }
+    // === AKHIR DARI PROSES MIGRASI ===
 
     // Seed initial users if table is empty
     const adminCount = await dbGet<{ count: number }>('SELECT COUNT(*) as count FROM pengguna WHERE username = ?', ['admin']);

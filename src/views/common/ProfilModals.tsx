@@ -151,19 +151,29 @@ export default function ProfilModals(props: any) {
                   }
 
                   return filtered.map((item: any) => (
-                    <div key={item.nis} className="bg-[#161b22] border border-slate-800/80 px-4 py-2.5 rounded-xl flex items-center justify-between gap-4 hover:border-indigo-500/20 transition duration-200">
+                    <div 
+                      key={item.nis} 
+                      onClick={() => {
+                        setActiveModal(null);
+                        setTimeout(() => {
+                          (window as any).showStudentProfile?.(item.nis);
+                        }, 100);
+                      }}
+                      className="bg-[#161b22] border border-slate-800/80 px-4 py-2.5 rounded-xl flex items-center justify-between gap-4 hover:border-indigo-500/40 hover:bg-slate-800/20 transition duration-200 cursor-pointer group"
+                      title="Klik untuk detail riwayat & nilai siswa"
+                    >
                       <div className="flex items-center gap-3">
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
                           item.jenis_kelamin === 'L' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-pink-500/10 text-pink-400 border border-pink-500/20'
                         }`}>{item.jenis_kelamin}</span>
                         <div>
-                          <span className="text-xs font-bold text-slate-200 block">{item.nama}</span>
+                          <span className="text-xs font-bold text-slate-200 block group-hover:text-blue-400 transition-colors">{item.nama}</span>
                           <span className="text-[10px] text-slate-500 font-mono">NIS: {item.nis} &bull; {item.sekolah}</span>
                         </div>
                       </div>
                       
                       <div className="text-right">
-                        <span className="text-[10px] font-bold px-2.5 py-1 bg-slate-800/80 text-slate-300 border border-slate-700/60 rounded-lg">{item.nama_kelas}</span>
+                        <span className="text-[10px] font-bold px-2.5 py-1 bg-slate-800/80 text-slate-300 border border-slate-700/60 rounded-lg group-hover:border-blue-500/20 transition-all">{item.nama_kelas}</span>
                       </div>
                     </div>
                   ));
@@ -239,10 +249,20 @@ export default function ProfilModals(props: any) {
                   return filtered.map((item: any) => {
                     const isSevere = item.total_tidak_hadir >= 3;
                     return (
-                      <div key={item.nis} className="bg-[#161b22] border border-slate-800/80 px-4 py-3 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-amber-500/20 transition duration-200">
+                      <div 
+                        key={item.nis} 
+                        onClick={() => {
+                          setActiveModal(null);
+                          setTimeout(() => {
+                            (window as any).showStudentProfile?.(item.nis);
+                          }, 100);
+                        }}
+                        className="bg-[#161b22] border border-slate-800/80 px-4 py-3 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-amber-500/30 hover:bg-slate-800/20 transition duration-200 cursor-pointer group"
+                        title="Klik untuk detail riwayat & nilai siswa"
+                      >
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-slate-200">{item.nama}</span>
+                            <span className="text-xs font-bold text-slate-200 group-hover:text-amber-400 transition-colors">{item.nama}</span>
                             <span className="text-[10px] font-bold px-1.5 py-0.2 bg-slate-800 text-slate-400 border border-slate-700/50 rounded-md">{item.nama_kelas}</span>
                           </div>
                           <span className="text-[9px] text-slate-500 font-mono block mt-0.5">NIS: {item.nis} &bull; {item.sekolah}</span>
@@ -332,10 +352,20 @@ export default function ProfilModals(props: any) {
                   }
 
                   return filtered.map((item: any, idx: number) => (
-                    <div key={`${item.nis}-${item.nama_aktivitas}-${idx}`} className="bg-[#161b22] border border-slate-800/80 px-4 py-3 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-rose-500/20 transition duration-200">
+                    <div 
+                      key={`${item.nis}-${item.nama_aktivitas}-${idx}`} 
+                      onClick={() => {
+                        setActiveModal(null);
+                        setTimeout(() => {
+                          (window as any).showStudentProfile?.(item.nis);
+                        }, 100);
+                      }}
+                      className="bg-[#161b22] border border-slate-800/80 px-4 py-3 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-rose-500/30 hover:bg-slate-800/20 transition duration-200 cursor-pointer group"
+                      title="Klik untuk detail riwayat & nilai siswa"
+                    >
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-slate-200">{item.nama}</span>
+                          <span className="text-xs font-bold text-slate-200 group-hover:text-rose-400 transition-colors">{item.nama}</span>
                           <span className="text-[10px] font-bold px-1.5 py-0.2 bg-slate-800 text-slate-400 border border-slate-700/50 rounded-md">{item.nama_kelas}</span>
                         </div>
                         <span className="text-[9px] text-rose-450 block mt-0.5 font-semibold">Ujian: {item.nama_aktivitas} ({new Date(item.tanggal).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'})})</span>

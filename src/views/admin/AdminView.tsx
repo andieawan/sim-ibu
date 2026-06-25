@@ -9,6 +9,7 @@ import {
 
 import AdminUsersTab from './tabs/AdminUsersTab';
 import AdminCatalogTab from './tabs/AdminCatalogTab';
+import AdminUploadTab from './tabs/AdminUploadTab';
 import AdminJadwalTab from './tabs/AdminJadwalTab';
 import AdminSystemTab from './tabs/AdminSystemTab';
 
@@ -34,7 +35,7 @@ interface AdminUser {
 }
 
 export default function AdminView({ classes, onRefreshClasses, currentUser, onNavigateToTab }: AdminViewProps) {
-  const [adminTab, setAdminTab] = useState<'users' | 'catalog' | 'jadwal' | 'system'>('users');
+  const [adminTab, setAdminTab] = useState<'users' | 'catalog' | 'upload' | 'jadwal' | 'system'>('users');
   const [schedViewMode, setSchedViewMode] = useState<'grid' | 'flat'>('grid');
   const [schedSearchQuery, setSchedSearchQuery] = useState('');
   
@@ -188,6 +189,52 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
   const [patchAlert, setPatchAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadingPatch, setUploadingPatch] = useState(false);
+
+  // State kustom untuk pembaruan codebase menyeluruh (.zip penuh)
+  const [codebaseCheckResult, setCodebaseCheckResult] = useState<any>(null);
+  const [uploadedBase64Zip, setUploadedBase64Zip] = useState<string>('');
+  const [applyingCodebaseUpdate, setApplyingCodebaseUpdate] = useState(false);
+
+  // ============================================================================
+  // FUNGSI TERAPKAN PEMBARUAN CODEBASE (HOT-RELOAD SISTEM)
+  // Maksud Bisnis: Mengirimkan string base64 ZIP penuh yang sudah tervalidasi ke backend
+  // untuk diekstraksi ke direktori kerja aplikasi, memicu auto-restart server dev.
+  //
+  // Aliran Data:
+  // - Input: `uploadedBase64Zip` (State kustom penampung data file zip).
+  // - Output: Memperbarui semua file proyek secara real-time dan merestart halaman.
+  // ============================================================================
+  const handleApplyCodebaseUpdate = async () => {
+    if (!uploadedBase64Zip) return;
+    setApplyingCodebaseUpdate(true);
+    setPatchAlert(null);
+    try {
+      const res = await fetch('/api/codebase/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileBase64: uploadedBase64Zip })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setPatchAlert({ 
+          type: 'success', 
+          message: data.message || 'Pembaruan codebase sukses! Sistem sedang merestart secara otomatis...' 
+        });
+        setCodebaseCheckResult(null);
+        setUploadedBase64Zip('');
+        // Berikan jeda agar server selesai reload, lalu segarkan browser pengguna
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      } else {
+        setPatchAlert({ type: 'error', message: data.error || 'Gagal menerapkan pembaruan codebase.' });
+      }
+    } catch (err: any) {
+      setPatchAlert({ type: 'error', message: 'Kesalahan jaringan: ' + err.message });
+    } finally {
+      setApplyingCodebaseUpdate(false);
+    }
+  };
 
   const fetchSchedules = async () => {
     setLoadingSchedules(true);
@@ -436,153 +483,267 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
   };
 
   // Handle patch file upload (.json, .sql, or .zip)
+  // ============================================================================
+  // FUNGSI UNGGAL PATCH & PEMBARUAN SISTEM (UNIFIED CODEBASE & DATABASE UPDATER)
+  // Maksud Bisnis: Membaca berkas pembaruan berupa .json kustom, file .sql mentah,
+  // atau file kompresi .zip yang berisi koleksi file kustom maupun kode sumber proyek penuh.
+  // Jika mendeteksi file zip codebase, sistem akan melakukan analisis diff cerdas
+  // dan memproses hot-reload codebase setelah disetujui admin.
+  //
+  // Aliran Data:
+  // - Input: Objek berkas `file` dari input/drag-and-drop.
+  // - Proses: Mengirim file ZIP (Base64) ke `/api/codebase/check` untuk analisis diff.
+  //           Jika ditemukan berkas proyek, simpan hasil verifikasi ke state.
+  //           Jika bukan codebase, gunakan ekstraksi client-side fallback untuk SQL/JSON patch database.
+  // - Output: Menampilkan daftar pembaruan atau mendaftarkan patch SQL ke database secara dinamis.
+  // ============================================================================
   const handlePatchUpload = async (file: File) => {
     setUploadingPatch(true);
     setPatchAlert(null);
+    setCodebaseCheckResult(null);
+    setUploadedBase64Zip('');
+
     try {
       const fileName = file.name;
-      const isJson = fileName.endsWith('.json');
-      const isSql = fileName.endsWith('.sql');
-      const isZip = fileName.endsWith('.zip');
+      const lowerFileName = fileName.toLowerCase();
+      const isJson = lowerFileName.endsWith('.json');
+      const isSql = lowerFileName.endsWith('.sql');
+      const isZip = lowerFileName.endsWith('.zip');
 
       if (!isJson && !isSql && !isZip) {
         throw new Error('Format file tidak didukung. Harap unggah file .json, .sql, atau .zip');
       }
 
-      if (isZip) {
+      // Fungsi bantu untuk membersihkan dan mengekstrak perintah SQL dari string berkas SQL
+      const extractSqlStatements = (sqlContent: string): string[] => {
+        let cleanContent = sqlContent.replace(/\/\*[\s\S]*?\*\//g, '');
+        const lines = cleanContent.split('\n');
+        const cleanLines = lines.map(line => {
+          const trimmed = line.trim();
+          if (trimmed.startsWith('--') || trimmed.startsWith('//')) {
+            return '';
+          }
+          const commentIndex = line.indexOf('--');
+          if (commentIndex !== -1) {
+            return line.substring(0, commentIndex).trim();
+          }
+          return line;
+        });
+        
+        return cleanLines
+          .join('\n')
+          .split(';')
+          .map(s => s.trim())
+          .filter(s => s.length > 0);
+      };
+
+      // Fungsi bantu untuk memetakan objek JSON ke format payload patch standar secara fleksibel
+      const mapJsonToPatchPayload = (parsed: any, fallbackName: string, fileIndex: number) => {
+        const name = parsed.nama_patch || parsed.nama || parsed.name || parsed.title || `Patch ${fallbackName}`;
+        const sqls = parsed.sql_statements || parsed.sql || parsed.statements || parsed.queries || parsed.query;
+        
+        if (!sqls) return null;
+
+        let sqlArray: string[] = [];
+        if (Array.isArray(sqls)) {
+          sqlArray = sqls.map(s => String(s).trim()).filter(Boolean);
+        } else if (typeof sqls === 'string') {
+          sqlArray = extractSqlStatements(sqls);
+        }
+
+        if (sqlArray.length === 0) return null;
+
+        return {
+          id: parsed.id || `PATCH-CUSTOM-${Date.now()}-${fileIndex}`,
+          nama_patch: name,
+          deskripsi: parsed.deskripsi || parsed.description || `Patch kustom dari file ${fallbackName} di dalam zip.`,
+          kategori: parsed.kategori || parsed.category || 'Bug Fix',
+          sql_statements: sqlArray
+        };
+      };
+
+      // Ekstraksi fallback jika file zip bukan berisi pembaruan codebase proyek
+      const fallbackZipPatchExtraction = async (zipFile: File) => {
         const zip = new JSZip();
-        const loadedZip = await zip.loadAsync(file);
+        const loadedZip = await zip.loadAsync(zipFile);
         
         let foundPatchesCount = 0;
         let fileIndex = 0;
         
         for (const [relativePath, zipEntry] of Object.entries(loadedZip.files)) {
           if (zipEntry.dir) continue;
+          if (relativePath.includes('__MACOSX') || relativePath.split('/').pop()?.startsWith('.')) {
+            continue;
+          }
           
-          const isEntryJson = relativePath.endsWith('.json');
-          const isEntrySql = relativePath.endsWith('.sql');
+          const lowerPath = relativePath.toLowerCase();
+          const isEntryJson = lowerPath.endsWith('.json');
+          const isEntrySql = lowerPath.endsWith('.sql');
           
           if (!isEntryJson && !isEntrySql) continue;
           
           const content = await zipEntry.async('string');
-          let patchPayload: any = null;
+          const cleanFileName = relativePath.split('/').pop() || relativePath;
+          let patchPayloads: any[] = [];
           
           if (isEntryJson) {
             try {
               const parsed = JSON.parse(content);
-              if (parsed.nama_patch && parsed.sql_statements) {
-                patchPayload = {
-                  id: parsed.id || `PATCH-CUSTOM-${Date.now()}-${fileIndex}`,
-                  nama_patch: parsed.nama_patch,
-                  deskripsi: parsed.deskripsi || `Patch kustom dari file ${relativePath} di dalam zip.`,
-                  kategori: parsed.kategori || 'Bug Fix',
-                  sql_statements: parsed.sql_statements
-                };
+              if (Array.isArray(parsed)) {
+                parsed.forEach((item, idx) => {
+                  const payload = mapJsonToPatchPayload(item, `${cleanFileName} [${idx}]`, fileIndex + idx);
+                  if (payload) patchPayloads.push(payload);
+                });
+              } else {
+                const payload = mapJsonToPatchPayload(parsed, cleanFileName, fileIndex);
+                if (payload) patchPayloads.push(payload);
               }
             } catch (err) {
-              console.warn(`Skip non-patch JSON inside zip: ${relativePath}`, err);
+              console.warn(`Melewati berkas JSON non-patch di dalam ZIP: ${relativePath}`, err);
             }
           } else if (isEntrySql) {
-            const statements = content
-              .split(';')
-              .map(s => s.trim())
-              .filter(s => s.length > 0 && !s.startsWith('--') && !s.startsWith('/*'));
-              
+            const statements = extractSqlStatements(content);
             if (statements.length > 0) {
-              const cleanFileName = relativePath.split('/').pop() || relativePath;
-              patchPayload = {
+              patchPayloads.push({
                 id: `PATCH-SQL-${Date.now()}-${fileIndex}`,
                 nama_patch: `Patch SQL: ${cleanFileName}`,
                 deskripsi: `Skrip SQL yang diekstrak dari ${relativePath} di dalam file ZIP ${fileName}. Terdiri dari ${statements.length} instruksi.`,
                 kategori: 'Database',
                 sql_statements: statements
-              };
+              });
             }
           }
           
-          if (patchPayload) {
+          for (const payload of patchPayloads) {
             const res = await fetch('/api/patches/upload', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(patchPayload)
+              body: JSON.stringify(payload)
             });
             const data = await res.json();
             if (res.ok && data.success) {
               foundPatchesCount++;
-            } else {
-              console.error(`Gagal mengunggah patch ${relativePath} dari ZIP:`, data.error);
             }
           }
-          fileIndex++;
+          fileIndex += Math.max(1, patchPayloads.length);
         }
         
         if (foundPatchesCount > 0) {
           setPatchAlert({ 
             type: 'success', 
-            message: `Berhasil mengekstrak dan mendaftarkan ${foundPatchesCount} patch dari file ZIP "${fileName}".` 
+            message: `Berhasil mengekstrak, memvalidasi, dan mendaftarkan ${foundPatchesCount} patch database dari file ZIP "${fileName}".` 
           });
           await fetchSystemPatches();
         } else {
-          throw new Error('Tidak ditemukan file patch .json valid atau file .sql yang berisi perintah di dalam ZIP.');
+          throw new Error('Tidak ditemukan berkas patch .json valid atau skrip .sql di dalam file ZIP.');
         }
-        setUploadingPatch(false);
+      };
+
+      if (isZip) {
+        // Baca berkas zip sebagai Base64 terlebih dahulu untuk verifikasi codebase backend
+        const reader = new FileReader();
+        reader.onload = async () => {
+          try {
+            const base64Data = (reader.result as string).split(',')[1];
+            const res = await fetch('/api/codebase/check', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ fileBase64: base64Data })
+            });
+            const data = await res.json();
+            
+            if (res.ok && data.success && data.changedFiles && data.changedFiles.length > 0) {
+              setCodebaseCheckResult(data);
+              setUploadedBase64Zip(base64Data);
+              setPatchAlert({
+                type: 'success',
+                message: `Pemeriksaan selesai! Terdeteksi ${data.stats.added} berkas baru dan ${data.stats.modified} berkas diubah. Silakan tinjau daftar di bawah ini untuk memulai proses pembaruan.`
+              });
+            } else {
+              // Jika bukan zip proyek / tidak ada file berubah yang terdeteksi, fallback ke ekstraksi db patch biasa
+              await fallbackZipPatchExtraction(file);
+            }
+          } catch (err: any) {
+            console.warn('Codebase check failed, falling back to local patch extraction:', err);
+            await fallbackZipPatchExtraction(file);
+          } finally {
+            setUploadingPatch(false);
+          }
+        };
+        reader.onerror = () => {
+          setPatchAlert({ type: 'error', message: 'Gagal membaca berkas zip.' });
+          setUploadingPatch(false);
+        };
+        reader.readAsDataURL(file);
         return;
       }
 
-      // Handle standard JSON/SQL files
+      // Menangani unggahan file standar non-ZIP (.json atau .sql tunggal)
       const reader = new FileReader();
       reader.onload = async (e) => {
         try {
           const content = e.target?.result as string;
-          let patchPayload: any = {};
+          let patchPayloads: any[] = [];
 
           if (isJson) {
             const parsed = JSON.parse(content);
-            if (!parsed.nama_patch) {
-              throw new Error('File JSON patch tidak valid. Field "nama_patch" wajib diisi.');
+            if (Array.isArray(parsed)) {
+              parsed.forEach((item, idx) => {
+                const payload = mapJsonToPatchPayload(item, `${fileName} [${idx}]`, idx);
+                if (payload) patchPayloads.push(payload);
+              });
+            } else {
+              const payload = mapJsonToPatchPayload(parsed, fileName, 0);
+              if (payload) patchPayloads.push(payload);
             }
-            if (!parsed.sql_statements) {
-              throw new Error('File JSON patch tidak valid. Field "sql_statements" wajib diisi.');
-            }
-            patchPayload = {
-              id: parsed.id || `PATCH-CUSTOM-${Date.now()}`,
-              nama_patch: parsed.nama_patch,
-              deskripsi: parsed.deskripsi || 'Patch kustom yang diunggah pengguna.',
-              kategori: parsed.kategori || 'Bug Fix',
-              sql_statements: parsed.sql_statements
-            };
-          } else {
-            // SQL file parser
-            const statements = content
-              .split(';')
-              .map(s => s.trim())
-              .filter(s => s.length > 0 && !s.startsWith('--') && !s.startsWith('/*'));
 
+            if (patchPayloads.length === 0) {
+              throw new Error('File JSON patch tidak valid. Pastikan elemen memiliki "nama_patch" dan "sql_statements".');
+            }
+          } else {
+            const statements = extractSqlStatements(content);
             if (statements.length === 0) {
               throw new Error('File SQL kosong atau tidak memiliki perintah SQL yang valid.');
             }
 
-            patchPayload = {
+            patchPayloads.push({
               id: `PATCH-SQL-${Date.now()}`,
               nama_patch: `Patch SQL: ${fileName}`,
               deskripsi: `Menjalankan skrip SQL eksternal dari file ${fileName}. Terdiri dari ${statements.length} instruksi.`,
               kategori: 'Database',
               sql_statements: statements
-            };
+            });
           }
 
-          const res = await fetch('/api/patches/upload', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(patchPayload)
-          });
-          const data = await res.json();
+          let uploadedCount = 0;
+          let lastMessage = '';
 
-          if (res.ok && data.success) {
-            setPatchAlert({ type: 'success', message: data.message });
+          for (const payload of patchPayloads) {
+            const res = await fetch('/api/patches/upload', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+
+            if (res.ok && data.success) {
+              uploadedCount++;
+              lastMessage = data.message;
+            } else {
+              console.error('Gagal mengunggah patch:', data.error);
+            }
+          }
+
+          if (uploadedCount > 0) {
+            setPatchAlert({ 
+              type: 'success', 
+              message: uploadedCount > 1 
+                ? `Berhasil mengunggah ${uploadedCount} patch dari file "${fileName}".` 
+                : lastMessage 
+            });
             await fetchSystemPatches();
           } else {
-            setPatchAlert({ type: 'error', message: data.error || 'Gagal mengunggah patch ke server.' });
+            throw new Error('Gagal meregistrasikan patch ke database.');
           }
         } catch (err: any) {
           setPatchAlert({ type: 'error', message: `Gagal membaca file: ${err.message}` });
@@ -603,6 +764,7 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
       setUploadingPatch(false);
     }
   };
+  // === AKHIR DARI LOGIKA UNGGAH PATCH SISTEM ===
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -912,6 +1074,7 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
     catalogSiswa, loadingCatalog, searchQuery, selectedClassFilter, selectedClassForImport, csvFile, csvPreview, parsedSiswaList, importStatus, promoting, promotionTargetClass, promotionSourceClass, promotionMode,
     schedules, loadingSchedules, scheduleAlert, editingScheduleId, scheduleDeleteConfirmId, newSchedClassId, newSchedGuruId, newSchedMatpel, newSchedHari, newSchedMulai, newSchedSelesai, schedViewMode, schedSearchQuery,
     systemAlert, schoolIdentity, loadingIdentity, identityAlert, systemPatches, loadingPatches, diagnostics, runningDiagnostics, patchActionLoading, patchAlert, isDragging, uploadingPatch,
+    codebaseCheckResult, setCodebaseCheckResult, uploadedBase64Zip, setUploadedBase64Zip, applyingCodebaseUpdate, handleApplyCodebaseUpdate,
     setFormUsername, setFormPassword, setFormNama, setFormRole, setFormKelasId, setShowAddForm, setEditingUserId, handleUserSubmit, handleEditClick, handleDeleteUser, resetUserForm, 
     setSearchQuery, setSelectedClassFilter, setSelectedClassForImport, handleFileChange, handleUploadCSV, setCsvFile, setCsvPreview, setParsedSiswaList, setImportStatus, handleDeleteStudent, handleDeleteClass, setPromoting, setPromotionMode, setPromotionSourceClass, setPromotionTargetClass, handleBulkAction,
     setSchedViewMode, setSchedSearchQuery, setNewSchedClassId, setNewSchedGuruId, setNewSchedMatpel, setNewSchedHari, setNewSchedMulai, setNewSchedSelesai, setEditingScheduleId, setScheduleDeleteConfirmId, handleAddSchedule, handleEditScheduleClick, handleDeleteSchedule, resetScheduleForm,
@@ -953,6 +1116,12 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
             <Database className="w-4 h-4" /> Katalog
           </button>
           <button
+            onClick={() => setAdminTab('upload')}
+            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${adminTab === 'upload' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
+          >
+            <Upload className="w-4 h-4" /> Upload
+          </button>
+          <button
             onClick={() => setAdminTab('jadwal')}
             className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${adminTab === 'jadwal' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
           >
@@ -988,6 +1157,15 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
           <span>Katalog</span>
         </button>
         <button
+          onClick={() => setAdminTab('upload')}
+          className={`p-3 rounded-2xl text-xs font-bold flex flex-col items-center justify-center gap-2 transition-all border cursor-pointer ${
+            adminTab === 'upload' ? 'bg-[#161b22] border-blue-500/30 text-blue-400 shadow-lg' : 'bg-[#0f1219] border-slate-800 text-slate-400'
+          }`}
+        >
+          <Upload className="w-5 h-5" />
+          <span>Upload</span>
+        </button>
+        <button
           onClick={() => setAdminTab('jadwal')}
           className={`p-3 rounded-2xl text-xs font-bold flex flex-col items-center justify-center gap-2 transition-all border cursor-pointer ${
             adminTab === 'jadwal' ? 'bg-[#161b22] border-blue-500/30 text-blue-400 shadow-lg' : 'bg-[#0f1219] border-slate-800 text-slate-400'
@@ -998,7 +1176,7 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
         </button>
         <button
           onClick={() => setAdminTab('system')}
-          className={`p-3 rounded-2xl text-xs font-bold flex flex-col items-center justify-center gap-2 transition-all border cursor-pointer ${
+          className={`p-3 rounded-2xl text-xs font-bold flex flex-col items-center justify-center gap-2 transition-all border col-span-2 cursor-pointer ${
             adminTab === 'system' ? 'bg-[#161b22] border-blue-500/30 text-blue-400 shadow-lg' : 'bg-[#0f1219] border-slate-800 text-slate-400'
           }`}
         >
@@ -1009,6 +1187,7 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
 
       {adminTab === 'users' && <AdminUsersTab {...tabProps as any} />}
       {adminTab === 'catalog' && <AdminCatalogTab {...tabProps as any} />}
+      {adminTab === 'upload' && <AdminUploadTab {...tabProps as any} />}
       {adminTab === 'jadwal' && <AdminJadwalTab {...tabProps as any} />}
       {adminTab === 'system' && <AdminSystemTab {...tabProps as any} />}
     </div>

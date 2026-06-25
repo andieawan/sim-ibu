@@ -38,26 +38,27 @@
 */
 
 /* Robust Attribute Selectors untuk warna latar belakang kontras tinggi */
-.theme-light [class*="bg-[#161b22]"],
-.theme-light [class*="bg-[#0f1219]"],
-.theme-light [class*="bg-[#1c2129]"],
-.theme-light [class*="bg-[#1a212d]"],
-.theme-light [class*="bg-[#111622]"],
-.theme-light [class*="bg-[#0b0e14]"],
-.theme-light [class*="bg-[#020617]"],
-.theme-light [class*="bg-[#121620]"],
-.theme-light [class*="bg-[#0a0d14]"],
-.theme-light [class*="bg-[#0c0f16]"],
-.theme-light [class*="bg-[#0d1118]"],
-.theme-light [class*="bg-[#0e121a]"],
-.theme-light [class*="bg-[#0c0e15]"],
-.theme-light [class*="bg-[#10141d]"],
-.theme-light [class*="bg-[#0e111a]"],
-.theme-light [class*="bg-[#0c0f17]"] {
+.theme-light[class*="bg-[#161b22]"], .theme-light [class*="bg-[#161b22]"],
+.theme-light[class*="bg-[#0f1219]"], .theme-light [class*="bg-[#0f1219]"],
+.theme-light[class*="bg-[#1c2129]"], .theme-light [class*="bg-[#1c2129]"],
+.theme-light[class*="bg-[#1a212d]"], .theme-light [class*="bg-[#1a212d]"],
+.theme-light[class*="bg-[#111622]"], .theme-light [class*="bg-[#111622]"],
+.theme-light[class*="bg-[#0b0e14]"], .theme-light [class*="bg-[#0b0e14]"],
+.theme-light[class*="bg-[#020617]"], .theme-light [class*="bg-[#020617]"],
+.theme-light[class*="bg-[#121620]"], .theme-light [class*="bg-[#121620]"],
+.theme-light[class*="bg-[#0a0d14]"], .theme-light [class*="bg-[#0a0d14]"],
+.theme-light[class*="bg-[#0c0f16]"], .theme-light [class*="bg-[#0c0f16]"],
+.theme-light[class*="bg-[#0d1118]"], .theme-light [class*="bg-[#0d1118]"],
+.theme-light[class*="bg-[#0e121a]"], .theme-light [class*="bg-[#0e121a]"],
+.theme-light[class*="bg-[#0c0e15]"], .theme-light [class*="bg-[#0c0e15]"],
+.theme-light[class*="bg-[#10141d]"], .theme-light [class*="bg-[#10141d]"],
+.theme-light[class*="bg-[#0e111a]"], .theme-light [class*="bg-[#0e111a]"],
+.theme-light[class*="bg-[#0c0f17]"], .theme-light [class*="bg-[#0c0f17]"] {
   background-color: var(--bg-panel) !important;
 }
 
 /* Mengubah warna kontainer utama agar mengikuti tema abu-abu terang */
+.theme-light[class*="bg-[#0b0e14]"],
 .theme-light [class*="bg-[#0b0e14]"] {
   background-color: var(--bg-main) !important;
 }
@@ -114,17 +115,17 @@
 }
 
 /* Text overrides in Light Mode */
-.theme-light .text-slate-100,
-.theme-light .text-slate-200,
-.theme-light .text-slate-300,
-.theme-light .text-slate-350,
-.theme-light .text-slate-50,
-.theme-light .text-white,
-.theme-light [class*="text-[#f1f5f9]"],
-.theme-light [class*="text-[#cdd9e5]"],
-.theme-light [class*="text-[#8fa0ba]"],
-.theme-light [class*="text-[#cbd5e1]"],
-.theme-light [class*="text-[#e2e8f0]"] {
+.theme-light.text-slate-100, .theme-light .text-slate-100,
+.theme-light.text-slate-200, .theme-light .text-slate-200,
+.theme-light.text-slate-300, .theme-light .text-slate-300,
+.theme-light.text-slate-350, .theme-light .text-slate-350,
+.theme-light.text-slate-50, .theme-light .text-slate-50,
+.theme-light.text-white, .theme-light .text-white,
+.theme-light[class*="text-[#f1f5f9]"], .theme-light [class*="text-[#f1f5f9]"],
+.theme-light[class*="text-[#cdd9e5]"], .theme-light [class*="text-[#cdd9e5]"],
+.theme-light[class*="text-[#8fa0ba]"], .theme-light [class*="text-[#8fa0ba]"],
+.theme-light[class*="text-[#cbd5e1]"], .theme-light [class*="text-[#cbd5e1]"],
+.theme-light[class*="text-[#e2e8f0]"], .theme-light [class*="text-[#e2e8f0]"] {
   color: var(--text-main) !important;
 }
 
@@ -697,5 +698,62 @@ body {
 h1, h2, h3, h4 {
   letter-spacing: -0.02em !important;
 }
+
+/* 
+   ============================================================================
+   SISTEM OPTIMASI LAYAR SENTUH (TOUCH-FIRST & MOBILE COMPATIBILITY)
+   Maksud Bisnis: Menghilangkan kendala antarmuka stuck hover pada layar sentuh,
+   meningkatkan sensitivitas tap, serta memberikan umpan balik taktil (tactile feedback) 
+   instan berukuran minimal 44px untuk kenyamanan jempol/jari pengguna seluler.
+   Aliran Data: Secara otomatis meng-override efek kursor (hover) hanya pada perangkat 
+   yang mendukung hover fisik, serta mereduksi waktu delay tap (300ms click delay).
+   ============================================================================
+ */
+
+/* 1. Menghilangkan sorotan abu-abu default bawaan browser mobile saat elemen ditap */
+* {
+  -webkit-tap-highlight-color: transparent !important;
+  touch-action: manipulation;
+}
+
+/* 2. Optimasi menu, navigasi, dan tombol interaktif agar memiliki area sentuh minimal 44px */
+nav.fixed.bottom-0 button,
+header button,
+select,
+input[type="button"],
+input[type="submit"],
+button {
+  min-height: 44px; /* Standar kenyamanan aksesibilitas jari manusia (W3C/iOS) */
+}
+
+/* 3. Memberikan umpan balik visual taktil instan ketika tombol atau menu ditap (Active States) */
+button:active,
+a:active,
+select:active,
+[role="button"]:active,
+.cursor-pointer:active {
+  transform: scale(0.97) !important;
+  opacity: 0.85 !important;
+  transition: transform 0.1s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.1s ease !important;
+}
+
+/* 4. Menghindari "Stuck Hover Effect" di mana tombol tetap menyala setelah ditap pada perangkat layar sentuh */
+@media (hover: none) {
+  /* Menonaktifkan efek hover bawaan pada browser seluler */
+  *:hover {
+    background-color: initial !important;
+    color: initial !important;
+    border-color: initial !important;
+    box-shadow: none !important;
+  }
+}
+
+/* 5. Optimasi scroll momentum yang halus dan responsif di sistem iOS/Safari */
+.overflow-y-auto,
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch !important;
+}
+
+/* === AKHIR DARI SISTEM OPTIMASI LAYAR SENTUH === */
 
 

@@ -15,10 +15,21 @@ export default function HomeKelasTab(props: any) {
   const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
   
       
+  // ============================================================================
+  // RENDERING TAB DAFTAR KELAS ADAPTIF (LIGHT & DARK MODE)
+  // Maksud Bisnis: Menampilkan daftar kelas yang terdaftar dengan gaya bento-grid premium,
+  // di mana kelas yang aktif/dipilih memiliki kontras visual tinggi, skema warna dinamis,
+  // serta accordion informasi detail siswa dan grafik statistik Recharts.
+  //
+  // Aliran Data:
+  // - Input: `displayedClasses` (array data kelas), `selectedClassForView` (ID kelas aktif),
+  //   `theme` ('light' | 'dark' atau tema kustom lainnya), `classStats` (data performa absensi/nilai).
+  // - Output: Antarmuka interaktif responsif dengan transisi animasi accordion yang halus.
+  // ============================================================================
   return (
     <div className="space-y-4 animate-in fade-in duration-300">
             <div className="flex justify-between items-center">
-              <h4 className="text-lg font-bold text-slate-100">Daftar Kelas Tersedia</h4>
+              <h4 className={`text-lg font-bold ${theme === 'light' ? 'text-slate-800' : 'text-slate-100'}`}>Daftar Kelas Tersedia</h4>
               {currentUser.role === 'admin' && (
                 <button
                   onClick={onOpenAddKelasModal}
@@ -32,7 +43,9 @@ export default function HomeKelasTab(props: any) {
             {loadingClasses ? (
               <div className="py-12 text-center text-slate-500 font-medium animate-pulse">Loading kelas...</div>
             ) : displayedClasses.length === 0 ? (
-              <div className="py-12 bg-[#161b22] rounded-3xl border border-dashed border-slate-800 text-center text-slate-400 text-sm">
+              <div className={`py-12 rounded-3xl border border-dashed text-center text-sm ${
+                theme === 'light' ? 'bg-slate-50 border-slate-300 text-slate-500' : 'bg-[#161b22] border-slate-800/80 text-slate-400'
+              }`}>
                 Belum ada kelas terdaftar. {currentUser.role === 'admin' && 'Klik + Kelas untuk memulai.'}
               </div>
             ) : (
@@ -44,11 +57,15 @@ export default function HomeKelasTab(props: any) {
                       key={k.id}
                       className={`rounded-2xl border transition-all duration-300 overflow-hidden ${
                         isSelected
-                          ? 'bg-[#111622]/85 border-blue-500/40 shadow-xl ring-1 ring-blue-500/10'
-                          : 'bg-[#161b22] border-slate-800/80 hover:border-slate-700'
+                          ? theme === 'light'
+                            ? 'bg-blue-50/70 border-blue-500/45 shadow-lg ring-1 ring-blue-500/10'
+                            : 'bg-[#111622]/85 border-blue-500/40 shadow-xl ring-1 ring-blue-500/10'
+                          : theme === 'light'
+                            ? 'bg-white border-slate-200/90 hover:border-slate-300/90 hover:shadow-sm'
+                            : 'bg-[#161b22] border-slate-800/80 hover:border-slate-700'
                       }`}
                     >
-                      {/* Class Header Button */}
+                      {/* // --- BAGIAN TOMBOL HEADER KELAS --- */}
                       <div
                         onClick={() => {
                           if (isSelected) {
@@ -60,21 +77,39 @@ export default function HomeKelasTab(props: any) {
                         }}
                         className={`p-4 text-left cursor-pointer flex items-center justify-between transition-colors ${
                           isSelected 
-                            ? 'bg-gradient-to-r from-blue-600/15 via-blue-900/10 to-transparent border-b border-slate-800/60' 
-                            : 'hover:bg-[#1c212c]'
+                            ? theme === 'light'
+                              ? 'bg-gradient-to-r from-blue-500/10 via-blue-50/40 to-transparent border-b border-blue-100'
+                              : 'bg-gradient-to-r from-blue-600/15 via-blue-900/10 to-transparent border-b border-slate-800/60' 
+                            : theme === 'light'
+                              ? 'hover:bg-slate-50/80'
+                              : 'hover:bg-[#1c212c]'
                         }`}
                       >
                         <div className="space-y-1">
-                          <h5 className="font-extrabold text-[#f1f5f9] text-sm flex items-center gap-2">
-                            <span className={`w-2 h-2 rounded-full ${isSelected ? 'bg-blue-400 animate-pulse' : 'bg-slate-500'}`} />
+                          <h5 className={`font-extrabold text-sm flex items-center gap-2 ${
+                            theme === 'light' ? 'text-slate-800' : 'text-[#f1f5f9]'
+                          }`}>
+                            <span className={`w-2 h-2 rounded-full ${
+                              isSelected 
+                                ? theme === 'light' ? 'bg-blue-600 animate-pulse' : 'bg-blue-400 animate-pulse' 
+                                : 'bg-slate-400'
+                            }`} />
                             {k.nama_kelas}
                           </h5>
                           <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-semibold px-2 py-0.5 bg-[#0f1219] text-slate-400 rounded-full border border-slate-850">
+                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                              theme === 'light'
+                                ? 'bg-slate-100 text-slate-600 border-slate-200'
+                                : 'bg-[#0f1219] text-slate-400 border-slate-850'
+                            }`}>
                               {k.sekolah}
                             </span>
                             {isSelected && (
-                              <span className="text-[9px] text-blue-400 font-bold bg-blue-500/10 border border-blue-500/20 px-1.5 py-0.5 rounded-full animate-pulse">
+                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full animate-pulse ${
+                                theme === 'light' 
+                                  ? 'text-blue-700 bg-blue-50 border border-blue-200' 
+                                  : 'text-blue-400 bg-blue-500/10 border border-blue-500/20'
+                              }`}>
                                 Detail Terbuka
                               </span>
                             )}
@@ -94,13 +129,22 @@ export default function HomeKelasTab(props: any) {
                               <Trash2 className="w-4 h-4" />
                             </button>
                           )}
-                          <div className={`p-1 rounded-lg transition-colors ${isSelected ? 'bg-blue-500/10 text-blue-400' : 'text-slate-500'}`}>
-                            <ArrowRight className={`w-4 h-4 transition-transform duration-300 ${isSelected ? 'rotate-90 text-blue-400' : ''}`} />
+                          <div className={`p-1 rounded-lg transition-colors ${
+                            isSelected 
+                              ? theme === 'light' ? 'bg-blue-50 text-blue-600' : 'bg-blue-500/10 text-blue-400' 
+                              : 'text-slate-400 hover:text-slate-600'
+                          }`}>
+                            <ArrowRight className={`w-4 h-4 transition-transform duration-300 ${
+                              isSelected 
+                                ? theme === 'light' ? 'rotate-90 text-blue-600' : 'rotate-90 text-blue-400' 
+                                : ''
+                            }`} />
                           </div>
                         </div>
                       </div>
+                      {/* // --- AKHIR DARI TOMBOL HEADER KELAS --- */}
 
-                      {/* Accordion content directly beneath the class item */}
+                      {/* // --- CONTAINER ACCORDION DETAIL KELAS --- */}
                       <AnimatePresence initial={false}>
                         {isSelected && (
                           <motion.div
@@ -108,15 +152,21 @@ export default function HomeKelasTab(props: any) {
                             animate={{ height: 'auto', opacity: 1 }}
                             exit={{ height: 0, opacity: 0 }}
                             transition={{ duration: 0.35, ease: 'easeInOut' }}
-                            className="bg-[#0e121a]/80 overflow-hidden"
+                            className={`${theme === 'light' ? 'bg-blue-50/20' : 'bg-[#0e121a]/80'} overflow-hidden`}
                           >
-                            <div className="p-4 sm:p-5 space-y-4 border-t border-slate-850">
-                              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-2 border-b border-slate-850 gap-2">
+                            <div className={`p-4 sm:p-5 space-y-4 border-t ${theme === 'light' ? 'border-blue-100' : 'border-slate-850'}`}>
+                              <div className={`flex flex-col sm:flex-row justify-between items-start sm:items-center pb-2 border-b gap-2 ${
+                                theme === 'light' ? 'border-slate-200' : 'border-slate-850'
+                              }`}>
                                 <div>
-                                  <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider font-mono">
+                                  <h4 className={`text-xs font-bold uppercase tracking-wider font-mono ${
+                                    theme === 'light' ? 'text-slate-700' : 'text-slate-300'
+                                  }`}>
                                     Daftar Siswa Kelas {k.nama_kelas}
                                   </h4>
-                                  <p className="text-[11px] text-slate-550">Menampilkan seluruh daftar siswa dan statistik belajar aktif.</p>
+                                  <p className={`text-[11px] ${
+                                    theme === 'light' ? 'text-slate-500' : 'text-slate-550'
+                                  }`}>Menampilkan seluruh daftar siswa dan statistik belajar aktif.</p>
                                 </div>
                                 <div className="flex items-center gap-2 self-end sm:self-auto">
                                   {currentUser.role === 'admin' && (
@@ -143,13 +193,21 @@ export default function HomeKelasTab(props: any) {
                               <div className="flex gap-2.5">
                                 <button
                                   onClick={() => onNavigateToTab('absensi', k.id)}
-                                  className="flex-1 py-2 text-center text-xs font-bold text-blue-400 bg-blue-900/30 border border-blue-500/20 rounded-xl hover:bg-blue-900/50 cursor-pointer transition-all"
+                                  className={`flex-1 py-2 text-center text-xs font-bold rounded-xl cursor-pointer transition-all ${
+                                    theme === 'light' 
+                                      ? 'text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100/70' 
+                                      : 'text-blue-400 bg-blue-900/30 border border-blue-500/20 hover:bg-blue-900/50'
+                                  }`}
                                 >
                                   Isi Absensi Kelas
                                 </button>
                                 <button
                                   onClick={() => onNavigateToTab('nilai', k.id)}
-                                  className="flex-1 py-2 text-center text-xs font-bold text-indigo-400 bg-indigo-900/30 border border-indigo-500/20 rounded-xl hover:bg-indigo-900/50 cursor-pointer transition-all"
+                                  className={`flex-1 py-2 text-center text-xs font-bold rounded-xl cursor-pointer transition-all ${
+                                    theme === 'light' 
+                                      ? 'text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100/70' 
+                                      : 'text-indigo-400 bg-indigo-900/30 border border-indigo-500/20 hover:bg-indigo-900/50'
+                                  }`}
                                 >
                                   Input Nilai Kelas
                                 </button>
@@ -160,10 +218,16 @@ export default function HomeKelasTab(props: any) {
                                 const isScrollable = classStats.length > 15;
                                 const chartMinWidth = isScrollable ? Math.max(700, classStats.length * 35) : '100%';
                                 return (
-                                  <div className="bg-[#0f1219] p-3.5 text-slate-300 rounded-2xl border border-slate-800/80 space-y-3 shadow-inner">
+                                  <div className={`p-3.5 rounded-2xl border space-y-3 shadow-inner ${
+                                    theme === 'light' ? 'bg-white border-slate-200 text-slate-700' : 'bg-[#0f1219] border-slate-800/80 text-slate-300'
+                                  }`}>
                                     <div className="flex justify-between items-center flex-wrap gap-2">
-                                      <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider font-mono flex items-center gap-1.5">
-                                        <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
+                                      <span className={`text-[10px] font-bold uppercase tracking-wider font-mono flex items-center gap-1.5 ${
+                                        theme === 'light' ? 'text-emerald-700' : 'text-emerald-400'
+                                      }`}>
+                                        <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${
+                                          theme === 'light' ? 'bg-emerald-600' : 'bg-emerald-400'
+                                        }`} />
                                         Statistik Kelas: Rata-rata Nilai vs Rasio Absen
                                       </span>
                                       {isScrollable && (
@@ -199,7 +263,7 @@ export default function HomeKelasTab(props: any) {
                                         </ResponsiveContainer>
                                       </div>
                                     </div>
-                                    <p className="text-[9px] text-slate-500 leading-relaxed font-medium">
+                                    <p className="text-[9px] text-slate-550 leading-relaxed font-medium">
                                       * Analisis Kelas: <strong>Batang Biru</strong> menunjukkan Rata-rata Nilai siswa. <strong>Garis Merah</strong> menunjukkan Rasio Absen / Ketidakhadiran siswa (0-100%).
                                     </p>
                                   </div>
@@ -209,15 +273,21 @@ export default function HomeKelasTab(props: any) {
                               {loadingSiswa ? (
                                 <div className="py-8 text-center text-slate-500 font-medium text-xs animate-pulse">Loading data siswa...</div>
                               ) : siswaListForView.length === 0 ? (
-                                <div className="text-center py-8 text-slate-500 text-xs space-y-1 bg-[#111622]/40 rounded-xl border border-slate-800">
+                                <div className={`text-center py-8 text-slate-500 text-xs space-y-1 rounded-xl border ${
+                                  theme === 'light' ? 'bg-slate-50 border-slate-200' : 'bg-[#111622]/40 border-slate-800'
+                                }`}>
                                   <p>Belum ada siswa di kelas ini.</p>
                                   <p className="text-[10px] text-slate-600">Gunakan tab info sekolah untuk mengimpor atau klik + Siswa.</p>
                                 </div>
                               ) : (
-                                <div className="overflow-x-auto rounded-xl border border-slate-850 bg-[#111622]/45">
+                                <div className={`overflow-x-auto rounded-xl border ${
+                                  theme === 'light' ? 'border-slate-200 bg-white' : 'border-slate-850 bg-[#111622]/45'
+                                }`}>
                                   <table className="w-full text-xs">
                                     <thead>
-                                      <tr className="text-slate-500 border-b border-slate-800/80 pb-1 text-[10px] bg-[#161b22]/50">
+                                      <tr className={`border-b pb-1 text-[10px] ${
+                                        theme === 'light' ? 'bg-slate-100/80 border-slate-200 text-slate-700' : 'text-slate-500 bg-[#161b22]/50 border-slate-800/80'
+                                      }`}>
                                         <th className="py-2.5 px-3 font-bold text-left uppercase tracking-wider text-[9px]">NIS</th>
                                         <th className="py-2.5 px-3 font-bold text-left uppercase tracking-wider text-[9px]">Nama Lengkap</th>
                                         <th className="py-2.5 px-3 font-bold text-center uppercase tracking-wider text-[9px]">L/P</th>
@@ -229,12 +299,32 @@ export default function HomeKelasTab(props: any) {
                                     </thead>
                                     <tbody className="divide-y divide-slate-800/60">
                                       {siswaListForView.map((s) => (
-                                        <tr key={s.nis} className="hover:bg-[#1c2129]/70 transition-colors">
-                                          <td className="py-2.5 px-3 font-mono font-medium text-slate-400">{s.nis}</td>
-                                          <td className="py-2.5 px-3 font-bold text-slate-200">{s.nama}</td>
+                                        <tr key={s.nis} className={`transition-colors ${
+                                          theme === 'light' ? 'hover:bg-blue-100/40' : 'hover:bg-[#1c2129]/70'
+                                        }`}>
+                                          <td 
+                                            className={`py-2.5 px-3 font-mono font-medium cursor-pointer hover:text-blue-500 transition-colors ${
+                                              theme === 'light' ? 'text-slate-600' : 'text-slate-400'
+                                            }`}
+                                            onClick={() => (window as any).showStudentProfile?.(s.nis)}
+                                            title="Klik untuk melihat profil"
+                                          >
+                                            {s.nis}
+                                          </td>
+                                          <td 
+                                            className={`py-2.5 px-3 font-bold cursor-pointer hover:text-blue-500 hover:underline transition-all ${
+                                              theme === 'light' ? 'text-slate-800' : 'text-slate-200'
+                                            }`}
+                                            onClick={() => (window as any).showStudentProfile?.(s.nis)}
+                                            title="Klik untuk melihat profil"
+                                          >
+                                            {s.nama}
+                                          </td>
                                           <td className="py-2.5 px-3 text-center">
                                             <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                                              s.jenis_kelamin === 'L' ? 'bg-blue-900/30 text-blue-400 border border-blue-500/10' : 'bg-pink-900/30 text-pink-400 border border-pink-500/10'
+                                              s.jenis_kelamin === 'L'
+                                                ? theme === 'light' ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-blue-900/30 text-blue-400 border border-blue-500/10'
+                                                : theme === 'light' ? 'bg-pink-50 text-pink-700 border border-pink-200' : 'bg-pink-900/30 text-pink-400 border border-pink-500/10'
                                             }`} title={s.jenis_kelamin === 'L' ? 'Laki-laki' : 'Perempuan'}>
                                               {s.jenis_kelamin}
                                             </span>
@@ -242,8 +332,8 @@ export default function HomeKelasTab(props: any) {
                                           <td className="py-2.5 px-3 text-center">
                                             <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
                                               s.status_aktif !== 0
-                                                ? 'bg-emerald-950/40 text-emerald-450 border border-emerald-500/10'
-                                                : 'bg-amber-950/40 text-amber-500 border border-amber-500/10'
+                                                ? theme === 'light' ? 'bg-emerald-50 text-emerald-700 border border-emerald-250' : 'bg-emerald-950/40 text-emerald-450 border border-emerald-500/10'
+                                                : theme === 'light' ? 'bg-amber-50 text-amber-700 border border-amber-250' : 'bg-amber-950/40 text-amber-500 border border-amber-500/10'
                                             }`}>
                                               {s.status_aktif !== 0 ? 'Aktif' : 'Nonaktif'}
                                             </span>
@@ -279,6 +369,7 @@ export default function HomeKelasTab(props: any) {
                           </motion.div>
                         )}
                       </AnimatePresence>
+                      {/* // --- AKHIR DARI CONTAINER ACCORDION DETAIL KELAS --- */}
                     </div>
                   );
                 })}

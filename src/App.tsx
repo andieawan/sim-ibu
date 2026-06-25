@@ -1,19 +1,37 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { Layers, Plus, X, GraduationCap, Sparkles, BookOpen, LogOut, Palette, Sun, Moon, BarChart3, User as UserIcon } from 'lucide-react';
 import { Kelas, Pengguna } from './types';
 import Navbar from './components/Navbar';
 import HomeView from './views/common/HomeView';
-import AbsensiView from './views/guru/AbsensiView';
-import NilaiView from './views/guru/NilaiView';
 import ProfilView from './views/common/ProfilView';
 import Modals from './components/Modals';
 import LoginView from './views/common/LoginView';
-import AdminView from './views/admin/AdminView';
-import RekapView from './views/guru/RekapView';
-import WaliMuridView from './views/wali-murid/WaliMuridView';
 import ProfileMenu from './components/ProfileMenu';
 import PwaInstall from './components/PwaInstall';
 import { AnimatePresence } from 'motion/react';
+import StudentDetailModal from './components/StudentDetailModal';
+import ChangelogModal from './components/ChangelogModal';
+
+// ============================================================================
+// OPTIMASI LAZY LOADING KOMPONEN UTAMA (PERFORMA & MOBILE-FIRST)
+// Maksud Bisnis: Memuat halaman-halaman dengan kapasitas kueri dan aset yang berat secara
+// asinkronus (on-demand) guna memangkas ukuran initial bundle file. Hal ini meningkatkan
+// kecepatan akses pertama (Load Time) secara drastif pada perangkat seluler dengan kuota data terbatas.
+// ============================================================================
+const AbsensiView = lazy(() => import('./views/guru/AbsensiView'));
+const NilaiView = lazy(() => import('./views/guru/NilaiView'));
+const RekapView = lazy(() => import('./views/guru/RekapView'));
+const AdminView = lazy(() => import('./views/admin/AdminView'));
+const WaliMuridView = lazy(() => import('./views/wali-murid/WaliMuridView'));
+
+// Loader Fallback minimalis dengan efek rotasi spinner dan teks berkedip (pulse)
+const LoadingFallback = () => (
+  <div className="flex flex-col items-center justify-center py-24 space-y-4 select-none">
+    <div className="w-10 h-10 rounded-full border-2 border-blue-500/10 border-t-blue-500 animate-spin" />
+    <span className="text-[10px] font-mono font-extrabold tracking-widest text-slate-500 uppercase animate-pulse">Memuat Halaman...</span>
+  </div>
+);
+// === AKHIR BLOK OPTIMASI LAZY LOADING ===
 
 // ============================================================================
 // SIM-IBU (SISTEM INFORMASI DAN MANAJEMEN - SMKS ISLAM BUSTANUL ULUM) - CORE FRONTEND COMPONENT
@@ -69,6 +87,11 @@ export default function App() {
   // FAB overlay menu state
   const [showFabMenu, setShowFabMenu] = useState<boolean>(false);
 
+  // State detail profil siswa interaktif
+  const [selectedStudentNis, setSelectedStudentNis] = useState<string | null>(null);
+  const [isStudentModalOpen, setIsStudentModalOpen] = useState<boolean>(false);
+  const [isChangelogOpen, setIsChangelogOpen] = useState<boolean>(false);
+
   const fetchSchoolIdentity = async () => {
     try {
       const res = await fetch('/api/school-identity');
@@ -118,6 +141,16 @@ export default function App() {
     fetchConfig();
     fetchClasses();
     fetchSchoolIdentity();
+
+    // Daftarkan fungsi pemanggil profil siswa secara global agar dapat diakses oleh komponen anak manapun
+    (window as any).showStudentProfile = (nis: string) => {
+      setSelectedStudentNis(nis);
+      setIsStudentModalOpen(true);
+    };
+
+    return () => {
+      delete (window as any).showStudentProfile;
+    };
   }, []);
 
   // ============================================================================
@@ -259,61 +292,61 @@ export default function App() {
 
       {/* Main Container Stage */}
       <main className="max-w-full mx-auto px-4 sm:px-6 lg:px-10 py-6">
-        {currentTab === 'beranda' && (
-          currentUser?.role === 'wali_murid' ? (
-            <WaliMuridView currentUser={currentUser} theme={theme as any} />
-          ) : (
-            <HomeView
-              currentUser={currentUser!}
+        <Suspense fallback={<LoadingFallback />}>
+          {currentTab === 'beranda' && (
+            currentUser?.role === 'wali_murid' ? (
+              <WaliMuridView currentUser={currentUser} theme={theme as any} />
+            ) : (
+              <HomeView
+                currentUser={currentUser!}
+                classes={classes}
+                loadingClasses={loadingClasses}
+                onRefreshClasses={fetchClasses}
+                onNavigateToTab={handleNavigateToTab}
+                onOpenAddKelasModal={() => { setShowAddKelas(true); setShowFabMenu(false); }}
+                onOpenAddSiswaModal={() => { setShowAddSiswa(true); setShowFabMenu(false); }}
+                schoolIdentity={schoolIdentity}
+                theme={theme}
+              />
+            )
+          )}
+
+          {currentTab === 'absensi' && (
+            <AbsensiView
               classes={classes}
               loadingClasses={loadingClasses}
-              onRefreshClasses={fetchClasses}
-              onNavigateToTab={handleNavigateToTab}
-              onOpenAddKelasModal={() => { setShowAddKelas(true); setShowFabMenu(false); }}
-              onOpenAddSiswaModal={() => { setShowAddSiswa(true); setShowFabMenu(false); }}
-              schoolIdentity={schoolIdentity}
-              theme={theme}
+              selectedClassId={selectedClassId}
+              onClassChange={setSelectedClassId}
             />
-          )
-        )}
+          )}
 
-        {currentTab === 'absensi' && (
-          <AbsensiView
-            classes={classes}
-            loadingClasses={loadingClasses}
-            selectedClassId={selectedClassId}
-            onClassChange={setSelectedClassId}
-          />
-        )}
+          {currentTab === 'nilai' && (
+            <NilaiView
+              classes={classes}
+              loadingClasses={loadingClasses}
+              selectedClassId={selectedClassId}
+              onClassChange={setSelectedClassId}
+            />
+          )}
 
-        {currentTab === 'nilai' && (
-          <NilaiView
-            classes={classes}
-            loadingClasses={loadingClasses}
-            selectedClassId={selectedClassId}
-            onClassChange={setSelectedClassId}
-          />
-        )}
+          {currentTab === 'rekap' && (
+            <RekapView
+              classes={classes}
+              loadingClasses={loadingClasses}
+              selectedClassId={selectedClassId}
+              onClassChange={setSelectedClassId}
+            />
+          )}
 
-        {currentTab === 'rekap' && (
-          <RekapView
-            classes={classes}
-            loadingClasses={loadingClasses}
-            selectedClassId={selectedClassId}
-            onClassChange={setSelectedClassId}
-          />
-        )}
-
-        {currentTab === 'admin' && (
-          <AdminView
-            classes={classes}
-            onRefreshClasses={fetchClasses}
-            currentUser={currentUser}
-            onNavigateToTab={handleNavigateToTab}
-          />
-        )}
-
-
+          {currentTab === 'admin' && (
+            <AdminView
+              classes={classes}
+              onRefreshClasses={fetchClasses}
+              currentUser={currentUser}
+              onNavigateToTab={handleNavigateToTab}
+            />
+          )}
+        </Suspense>
       </main>
 
       {/* Blue Floating Action Button (+) */}
@@ -386,6 +419,14 @@ export default function App() {
         }}
       />
 
+      {/* Modal Detail Profil Siswa Komprehensif (Wajib untuk semua role: Admin, Guru, Wali Kelas, Wali Murid) */}
+      <StudentDetailModal
+        isOpen={isStudentModalOpen}
+        onClose={() => setIsStudentModalOpen(false)}
+        nis={selectedStudentNis}
+        theme={theme}
+      />
+
       {/* Global Bot navigational bar */}
       <Navbar currentTab={currentTab} setTab={setCurrentTab} isAdmin={currentUser.role === 'admin'} isWaliKelas={isWaliKelas} isWaliMurid={currentUser.role === 'wali_murid'} />
 
@@ -400,6 +441,10 @@ export default function App() {
               localStorage.setItem('simibu_theme', newTheme);
             }}
             onClose={() => setShowProfileMenu(false)}
+            onOpenChangelog={() => {
+              setShowProfileMenu(false);
+              setIsChangelogOpen(true);
+            }}
             onUpdateUser={(updatedUser) => {
               const fullUser = { ...currentUser, ...updatedUser };
               setCurrentUser(fullUser);
@@ -417,6 +462,13 @@ export default function App() {
 
       {/* PWA Floating Badge and Dialog */}
       <PwaInstall appEnv={appEnv} />
+
+      {/* Modal Versi & Log Pembaruan (Changelog) */}
+      <ChangelogModal 
+        isOpen={isChangelogOpen} 
+        onClose={() => setIsChangelogOpen(false)} 
+        theme={theme} 
+      />
 
     </div>
   );

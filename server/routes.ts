@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { db, dbRun, dbAll, dbGet, initializeDatabase } from './db';
 import bcrypt from 'bcryptjs';
 import { getIronSession } from 'iron-session';
+import JSZip from 'jszip';
 
 // Define session data type
 export interface MySessionData {
@@ -277,6 +278,67 @@ router.get('/siswa-all', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// ============================================================================
+// ENDPOINT: DETAIL PROFIL SISWA KOMPREHENSIF (ABSENSI & NILAI)
+// Maksud Bisnis: Menyediakan data profil lengkap siswa secara real-time yang 
+//                 mencakup data pribadi, riwayat absensi harian, dan pencapaian 
+//                 nilai akademik untuk ditampilkan di modal detail interaktif.
+//
+// Aliran Data:
+// - Input: `nis` (String, nomor induk siswa dari parameter URL)
+// - Proses: 
+//   1. Mengambil data dasar siswa & informasi kelas.
+//   2. Mengambil riwayat absensi (Hadir, Sakit, Izin, Alfa) yang diurutkan kronologis.
+//   3. Mengambil riwayat nilai aktivitas beserta KKM dan status kelulusan.
+// - Output: Objek JSON berisi detail siswa, daftar absensi, dan daftar nilai.
+// ============================================================================
+router.get('/siswa-profile/:nis', async (req, res) => {
+  try {
+    const { nis } = req.params;
+    
+    // 1. Ambil data dasar siswa beserta kelasnya
+    const siswa = await dbGet(`
+      SELECT s.*, k.nama_kelas, k.sekolah 
+      FROM siswa s
+      LEFT JOIN kelas k ON s.kelas_id = k.id
+      WHERE s.nis = ?
+    `, [nis]);
+
+    if (!siswa) {
+      return res.status(404).json({ error: 'Data siswa tidak ditemukan' });
+    }
+
+    // 2. Ambil riwayat absensi detail siswa
+    const absensi = await dbAll(`
+      SELECT da.id, da.absensi_id, da.status, da.updated_at, a.tanggal
+      FROM detail_absensi da
+      JOIN absensi a ON da.absensi_id = a.id
+      WHERE da.siswa_nis = ?
+      ORDER BY a.tanggal DESC
+    `, [nis]);
+
+    // 3. Ambil riwayat nilai detail siswa
+    const nilai = await dbAll(`
+      SELECT dn.id, dn.aktivitas_id, dn.nilai, dn.catatan, an.nama_aktivitas, an.tanggal, an.kkm
+      FROM detail_nilai dn
+      JOIN aktivitas_nilai an ON dn.aktivitas_id = an.id
+      WHERE dn.siswa_nis = ?
+      ORDER BY an.tanggal DESC
+    `, [nis]);
+
+    res.json({
+      success: true,
+      siswa,
+      absensi,
+      nilai
+    });
+  } catch (error: any) {
+    console.error('Error fetching siswa profile:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+// === AKHIR DARI DETAIL PROFIL SISWA KOMPREHENSIF ===
 
 // 4. Get Siswa by Kelas
 router.get('/siswa/:kelas_id', async (req, res) => {
@@ -1998,5 +2060,190 @@ router.get('/system/backup', async (req, res) => {
     res.status(500).json({ error: 'Gagal membuat backup database: ' + err.message });
   }
 });
+
+// ============================================================================
+// ENDPOINT: POST /api/codebase/check
+// Maksud Bisnis: Menerima unggahan file ZIP berisi seluruh codebase kode sumber proyek,
+// membandingkannya dengan file lokal yang sedang berjalan di server kontainer, 
+// kemudian mendeteksi daftar penambahan berkas baru (fitur baru), modifikasi berkas 
+// (perbaikan bug / pembaruan), serta mengelompokkan kategori perubahan secara cerdas.
+//
+// Aliran Data:
+// - Input: Objek JSON `req.body` berisi `fileBase64` (string terenkripsi Base64 dari file ZIP).
+// - Output: Ringkasan statistik (jumlah file ditambah, dimodifikasi, ukuran) serta
+//   array rincian perubahan berkas lengkap dengan status dan jenis semantik perubahannya.
+// ============================================================================
+router.post('/codebase/check', async (req, res) => {
+  const { fileBase64 } = req.body;
+
+  if (!fileBase64) {
+    return res.status(400).json({ error: 'Data berkas ZIP (Base64) wajib disertakan' });
+  }
+
+  try {
+    const buffer = Buffer.from(fileBase64, 'base64');
+    const zip = new JSZip();
+    const loadedZip = await zip.loadAsync(buffer);
+
+    const changedFiles: any[] = [];
+    let addedCount = 0;
+    let modifiedCount = 0;
+    let unchangedCount = 0;
+
+    for (const [relativePath, zipEntry] of Object.entries(loadedZip.files)) {
+      if (zipEntry.dir) continue;
+
+      // Abaikan berkas metadata sistem operasi atau file tersembunyi
+      if (relativePath.includes('__MACOSX') || relativePath.split('/').pop()?.startsWith('.')) {
+        continue;
+      }
+
+      // Abaikan direktori dependensi, keluaran build, berkas database lokal, dan lingkungan (.env)
+      if (
+        relativePath.startsWith('node_modules/') ||
+        relativePath.startsWith('dist/') ||
+        relativePath.includes('sekolah.db') ||
+        relativePath.includes('database.sqlite') ||
+        relativePath.endsWith('.env')
+      ) {
+        continue;
+      }
+
+      const localPath = path.resolve(process.cwd(), relativePath);
+      const exists = fs.existsSync(localPath);
+
+      const zipContent = await zipEntry.async('string');
+      let status = 'added';
+      let semanticType: 'feature' | 'bugfix' | 'refactor' | 'general' = 'general';
+      let summaryOfChange = '';
+
+      if (exists) {
+        const localContent = fs.readFileSync(localPath, 'utf-8');
+        if (localContent.trim() === zipContent.trim()) {
+          status = 'unchanged';
+          unchangedCount++;
+          continue; // Hanya laporkan berkas yang benar-benar mengalami perubahan
+        } else {
+          status = 'modified';
+          modifiedCount++;
+        }
+      } else {
+        addedCount++;
+      }
+
+      // Deteksi semantik cerdas menggunakan kata kunci di dalam kode sumber
+      const isBugfix = /bugfix|perbaikan_bug|hotfix|fix_error|fix\s*\(|perbaikan|penanganan_error/i.test(zipContent) ||
+                        /error|err|catch|handling/i.test(relativePath);
+      const isFeature = /fitur_baru|new_feature|feat|tambah_fitur|create_tab/i.test(zipContent) ||
+                        /view|tab|modal|page|add|create/i.test(relativePath);
+      const isRefactor = /refactor|optimasi|clean_code|performance|rapikan/i.test(zipContent) ||
+                         /utils|helpers|types/i.test(relativePath);
+
+      if (isBugfix) {
+        semanticType = 'bugfix';
+      } else if (isFeature) {
+        semanticType = 'feature';
+      } else if (isRefactor) {
+        semanticType = 'refactor';
+      }
+
+      if (status === 'added') {
+        summaryOfChange = `Berkas baru terdeteksi: "${relativePath}" (${semanticType === 'feature' ? 'Fitur Baru' : 'Pembaruan Umum'})`;
+      } else {
+        summaryOfChange = `Perubahan isi kode terdeteksi pada: "${relativePath}" (${semanticType === 'bugfix' ? 'Perbaikan Bug' : 'Optimasi Kode'})`;
+      }
+
+      changedFiles.push({
+        path: relativePath,
+        status,
+        semanticType,
+        summaryOfChange,
+        size: zipContent.length
+      });
+    }
+
+    res.json({
+      success: true,
+      stats: {
+        added: addedCount,
+        modified: modifiedCount,
+        unchanged: unchangedCount,
+        totalChanges: changedFiles.length
+      },
+      changedFiles
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Gagal menganalisis berkas ZIP: ' + err.message });
+  }
+});
+// === AKHIR DARI ENDPOINT CEK CODEBASE ===
+
+// ============================================================================
+// ENDPOINT: POST /api/codebase/apply
+// Maksud Bisnis: Menerapkan pembaruan codebase secara menyeluruh dengan mengekstrak 
+// isi dari berkas ZIP yang diunggah dan menulis ulang file ke sistem penyimpanan server.
+// Hal ini berguna untuk pembaruan fitur / perbaikan bug dinamis secara hot-reload.
+//
+// Aliran Data:
+// - Input: Objek JSON `req.body` berisi `fileBase64` (string Base64 berkas ZIP).
+// - Output: Pesan sukses berserta jumlah berkas yang berhasil diperbarui di sistem.
+// ============================================================================
+router.post('/codebase/apply', async (req, res) => {
+  const { fileBase64 } = req.body;
+
+  if (!fileBase64) {
+    return res.status(400).json({ error: 'Data berkas ZIP (Base64) wajib disertakan untuk pembaruan' });
+  }
+
+  try {
+    const buffer = Buffer.from(fileBase64, 'base64');
+    const zip = new JSZip();
+    const loadedZip = await zip.loadAsync(buffer);
+
+    let appliedCount = 0;
+    const appliedFiles: string[] = [];
+
+    for (const [relativePath, zipEntry] of Object.entries(loadedZip.files)) {
+      if (zipEntry.dir) continue;
+
+      // Abaikan berkas metadata OS atau file tersembunyi
+      if (relativePath.includes('__MACOSX') || relativePath.split('/').pop()?.startsWith('.')) {
+        continue;
+      }
+
+      // Cegah penulisan ulang pada folder dependensi, database persisten, dan konfigurasi rahasia
+      if (
+        relativePath.startsWith('node_modules/') ||
+        relativePath.startsWith('dist/') ||
+        relativePath.includes('sekolah.db') ||
+        relativePath.includes('database.sqlite') ||
+        relativePath.endsWith('.env')
+      ) {
+        continue;
+      }
+
+      const localPath = path.resolve(process.cwd(), relativePath);
+
+      // Buat direktori induk secara rekursif jika belum tercipta di workspace
+      fs.mkdirSync(path.dirname(localPath), { recursive: true });
+
+      // Tulis konten berkas sebagai biner (nodebuffer) agar mendukung teks maupun berkas media
+      const zipContentBuffer = await zipEntry.async('nodebuffer');
+      fs.writeFileSync(localPath, zipContentBuffer);
+      
+      appliedCount++;
+      appliedFiles.push(relativePath);
+    }
+
+    res.json({
+      success: true,
+      message: `Pembaruan sistem berhasil! ${appliedCount} berkas telah diperbarui secara langsung.`,
+      appliedFiles
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Gagal menerapkan pembaruan codebase: ' + err.message });
+  }
+});
+// === AKHIR DARI ENDPOINT TERAPKAN CODEBASE ===
 
 export default router;

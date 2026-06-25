@@ -193,7 +193,9 @@ export default function LoginView({ onLoginSuccess, appEnv }: LoginViewProps) {
 
         {/* App Meta footer */}
         <p className="text-center text-[10px] text-slate-600 font-mono">
-          SIM-IBU v1.4 • Hak Cipta SMKS Islam Bustanul Ulum © 2026
+          {/* === DOKUMENTASI VERSI APLIKASI TERBARU (v2.2.0-Stabil) === */}
+          {/* Maksud Bisnis: Membantu pengguna memvalidasi bahwa mereka sedang menjalankan sistem rilis terbaru dengan seluruh perbaikan terkini. */}
+          SIM-IBU v2.2.0-Stabil • Hak Cipta SMKS Islam Bustanul Ulum © 2026
         </p>
 
       </div>

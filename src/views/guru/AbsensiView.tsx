@@ -35,6 +35,7 @@ export default function AbsensiView({
   selectedClassId,
   onClassChange,
 }: AbsensiViewProps) {
+  const isLight = typeof document !== 'undefined' && document.documentElement.classList.contains('theme-light');
   const getAuthHeader = () => {
     try {
       const saved = sessionStorage.getItem('simibu_user');
@@ -302,9 +303,9 @@ export default function AbsensiView({
             onChange={(e) => onClassChange(Number(e.target.value))}
             className="px-3 py-2 bg-blue-950/40 border border-blue-500/30 rounded-xl text-xs font-bold text-blue-400 focus:outline-none cursor-pointer"
           >
-            <option value="" className="bg-[#161b22] text-slate-300">-- Pilih Kelas --</option>
+            <option value="" className={isLight ? 'bg-white text-slate-800' : 'bg-[#161b22] text-slate-300'}>-- Pilih Kelas --</option>
             {classes.map((k) => (
-              <option key={k.id} value={k.id} className="bg-[#161b22] text-slate-300">{k.nama_kelas}</option>
+              <option key={k.id} value={k.id} className={isLight ? 'bg-white text-slate-800' : 'bg-[#161b22] text-slate-300'}>{k.nama_kelas}</option>
             ))}
           </select>
         </div>
@@ -384,9 +385,13 @@ export default function AbsensiView({
                         key={s.nis}
                         className="p-3.5 bg-[#0f1219] rounded-2xl border border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                       >
-                        <div className="min-w-0 flex-1">
-                          <span className="font-mono text-2xs text-slate-500 font-bold block">{s.nis}</span>
-                          <h5 className="font-bold text-slate-200 text-sm truncate">{s.nama}</h5>
+                        <div 
+                          className="min-w-0 flex-1 cursor-pointer group"
+                          onClick={() => (window as any).showStudentProfile?.(s.nis)}
+                          title="Klik untuk detail riwayat & nilai siswa"
+                        >
+                          <span className="font-mono text-2xs text-slate-500 font-bold block group-hover:text-blue-400 transition-colors">NIS: {s.nis} &bull; Lihat detail &rarr;</span>
+                          <h5 className="font-bold text-slate-200 text-sm truncate group-hover:text-blue-400 transition-colors group-hover:underline">{s.nama}</h5>
                           <p className="text-3xs font-semibold uppercase tracking-wider text-slate-500">
                             Gender: {s.jenis_kelamin}
                           </p>

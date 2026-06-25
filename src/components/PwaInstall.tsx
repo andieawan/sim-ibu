@@ -175,7 +175,9 @@ export default function PwaInstall({ appEnv }: PwaInstallProps) {
 
             {/* Bottom Actions info */}
             <div className="pt-2 border-t border-slate-850 flex justify-between items-center text-3xs font-semibold text-slate-500 leading-none">
-              <span>SIM-IBU PWA v1.0</span>
+              {/* === UPDATE VERSI PWA KE v2.2 === */}
+              {/* Maksud Bisnis: Memberikan informasi rilis modul PWA kepada pengguna */}
+              <span>SIM-IBU PWA v2.2</span>
               <span className="text-emerald-500 uppercase font-bold tracking-widest">{appEnv === 'dev' ? 'Mode Pengembangan' : 'Diterbitkan Resmi'}</span>
             </div>
           </div>

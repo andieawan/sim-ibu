@@ -49,6 +49,7 @@ export default function RekapView({
   selectedClassId,
   onClassChange,
 }: RekapViewProps) {
+  const isLight = typeof document !== 'undefined' && document.documentElement.classList.contains('theme-light');
   const [activeSubTab, setActiveSubTab] = useState<'absensi' | 'nilai'>('absensi');
   
   // State for Absensi recap
@@ -407,9 +408,9 @@ export default function RekapView({
             onChange={(e) => onClassChange(Number(e.target.value))}
             className="px-3.5 py-2.5 bg-blue-950/40 border border-blue-500/30 rounded-xl text-xs font-bold text-blue-400 focus:outline-none"
           >
-            <option value="" className="bg-[#161b22] text-slate-300">-- Pilih Kelas --</option>
+            <option value="" className={isLight ? 'bg-white text-slate-800' : 'bg-[#161b22] text-slate-300'}>-- Pilih Kelas --</option>
             {classes.map((k) => (
-              <option key={k.id} value={k.id} className="bg-[#161b22] text-slate-300">{k.nama_kelas}</option>
+              <option key={k.id} value={k.id} className={isLight ? 'bg-white text-slate-800' : 'bg-[#161b22] text-slate-300'}>{k.nama_kelas}</option>
             ))}
           </select>
 

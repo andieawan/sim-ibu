@@ -23,15 +23,7 @@ export default function AdminJadwalTab(props: AdminTabProps) {
     downloadSampleCSV, exportStudentsToExcel, filteredSiswa, setScheduleAlert, setPatchAlert
   } = props;
 
-  const {
-    jadwalFile, jadwalPreview, parsedJadwalList, jadwalImportStatus, handleJadwalFileChange, handleUploadJadwal, downloadSampleJadwalExcel,
-    waliFile, waliPreview, parsedWaliList, waliImportStatus, handleWaliFileChange, handleUploadWali, downloadSampleWaliExcel
-  } = useMultiSpreadsheetImport(() => {
-    // Refresh halaman setelah sukses mengimpor jadwal atau walikelas
-    setTimeout(() => {
-      window.location.reload();
-    }, 1500);
-  });
+  // Fitur Impor Jadwal dan Impor Wali Kelas via Excel telah dipindahkan dan dipusatkan ke tab "Upload"
 
   return (
     <div className="space-y-6">
@@ -434,202 +426,23 @@ export default function AdminJadwalTab(props: AdminTabProps) {
         )}
       </div>
 
-      {/* TWO EXCEL BULK UPLOADS: JADWAL & WALI KELAS */}
-      {/* Maksud Bisnis: Menyediakan form unggah jadwal pelajaran massal dan pemetaan walikelas instan via spreadsheet */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-12">
-        
-        {/* BULK JADWAL UPLOAD */}
-        <div className="bg-[#161b22] p-6 rounded-3xl border border-slate-800 space-y-4 shadow-2xl relative overflow-hidden flex flex-col justify-between">
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div>
-                <h4 className="text-sm font-bold text-slate-100 flex items-center gap-1.5">
-                  <Upload className="w-4.5 h-4.5 text-blue-400" />
-                  <span>Impor Sesi Jadwal (Excel)</span>
-                </h4>
-                <p className="text-slate-400 text-3xs mt-0.5">Unggah penugasan jadwal pelajaran per kelas secara massal.</p>
-              </div>
-              <button 
-                onClick={downloadSampleJadwalExcel}
-                className="flex items-center space-x-1 text-4xs text-blue-400 bg-blue-900/30 border border-blue-500/20 px-2.5 py-1.5 rounded-lg hover:bg-blue-900/50 font-bold transition cursor-pointer self-start"
-              >
-                <Download className="w-3 h-3" />
-                <span>Format (.xlsx)</span>
-              </button>
-            </div>
-
-            <div className="space-y-1.5">
-              <div className="relative">
-                <input
-                  type="file"
-                  id="admin-jadwal-file-input"
-                  accept=".xlsx,.xls,.csv"
-                  onChange={handleJadwalFileChange}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                />
-                <div className="w-full bg-[#0f1219] border border-slate-800 rounded-xl px-4 py-2.5 flex items-center justify-between text-xs text-slate-400">
-                  <span className="truncate font-medium max-w-[220px] text-slate-300">
-                    {jadwalFile ? jadwalFile.name : 'Pilih file excel jadwal...'}
-                  </span>
-                  <Upload className="w-4 h-4 text-slate-500" />
-                </div>
-              </div>
-            </div>
-
-            {/* Jadwal Preview Table */}
-            {jadwalPreview.length > 0 && (
-              <div className="bg-[#0f1219] p-3 rounded-2xl border border-slate-800 space-y-2 animate-in fade-in duration-200">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-500">Pratinjau Jadwal</span>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-4xs">
-                    <thead>
-                      <tr className="text-slate-500 border-b border-slate-800">
-                        <th className="pb-1 font-medium">Kelas</th>
-                        <th className="pb-1 font-medium">Guru (User)</th>
-                        <th className="pb-1 font-medium">Mata Pelajaran</th>
-                        <th className="pb-1 font-medium">Hari</th>
-                        <th className="pb-1 font-medium text-center">Waktu</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-800">
-                      {jadwalPreview.map((item, idx) => (
-                        <tr key={idx} className="text-slate-300">
-                          <td className="py-1.5 font-bold text-slate-200">{item.nama_kelas}</td>
-                          <td className="py-1.5 font-mono text-slate-400">{item.username_guru}</td>
-                          <td className="py-1.5 font-semibold text-slate-200 truncate max-w-[80px]">{item.mata_pelajaran}</td>
-                          <td className="py-1.5 text-blue-400 font-bold">{item.hari}</td>
-                          <td className="py-1.5 text-center font-mono text-slate-400">{item.waktu_mulai}-{item.waktu_selesai}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
+      {/* INFORMASI KONSOLIDASI MENU IMPOR DATA */}
+      {/* Maksud Bisnis: Menyediakan info pemusatan seluruh modul import data Excel agar administrator tidak bingung */}
+      <div className="bg-[#161b22] border border-slate-800 p-6 rounded-3xl shadow-xl flex flex-col md:flex-row items-center justify-between gap-4 pb-12 mb-6">
+        <div className="flex items-center gap-3.5">
+          <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-2xl">
+            <Calendar className="w-6 h-6 text-blue-400" />
           </div>
-
-          <div className="pt-4 space-y-2">
-            <button
-              onClick={handleUploadJadwal}
-              disabled={!jadwalFile}
-              className={`w-full py-2.5 rounded-xl font-bold flex items-center justify-center space-x-2 transition duration-300 text-3xs ${
-                jadwalFile
-                  ? 'bg-blue-600 text-white hover:bg-blue-500 cursor-pointer shadow-md'
-                  : 'bg-[#111622] border border-slate-850 text-slate-500 cursor-not-allowed'
-              }`}
-            >
-              <Upload className="w-3.5 h-3.5" />
-              <span>Unggah File Jadwal</span>
-            </button>
-
-            {jadwalImportStatus.message && (
-              <div className={`p-3 rounded-xl border text-4xs flex items-start space-x-2 ${
-                jadwalImportStatus.type === 'success'
-                  ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-400'
-                  : 'bg-rose-950/20 border-rose-500/30 text-rose-450'
-              }`}>
-                <CheckCircle2 className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${
-                  jadwalImportStatus.type === 'success' ? 'text-emerald-500' : 'text-rose-500'
-                }`} />
-                <span>{jadwalImportStatus.message}</span>
-              </div>
-            )}
+          <div>
+            <h5 className="font-bold text-slate-100 text-sm">Impor Jadwal &amp; Wali Kelas Massal Terpusat</h5>
+            <p className="text-xs text-slate-400 mt-0.5 leading-normal">
+              Seluruh modul impor data Sesi Jadwal Pelajaran dan Wali Kelas via berkas Excel (.xlsx) kini disatukan di bawah tab menu utama <strong className="text-blue-400">Upload</strong>.
+            </p>
           </div>
         </div>
-
-        {/* BULK WALI KELAS UPLOAD */}
-        <div className="bg-[#161b22] p-6 rounded-3xl border border-slate-800 space-y-4 shadow-2xl relative overflow-hidden flex flex-col justify-between">
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div>
-                <h4 className="text-sm font-bold text-slate-100 flex items-center gap-1.5">
-                  <UserCheck className="w-4.5 h-4.5 text-emerald-400" />
-                  <span>Impor Wali Kelas (Excel)</span>
-                </h4>
-                <p className="text-slate-400 text-3xs mt-0.5">Unggah pemetaan guru menjadi wali kelas per lokal secara otomatis.</p>
-              </div>
-              <button 
-                onClick={downloadSampleWaliExcel}
-                className="flex items-center space-x-1 text-4xs text-emerald-400 bg-emerald-900/30 border border-emerald-500/20 px-2.5 py-1.5 rounded-lg hover:bg-emerald-900/50 font-bold transition cursor-pointer self-start"
-              >
-                <Download className="w-3 h-3" />
-                <span>Format (.xlsx)</span>
-              </button>
-            </div>
-
-            <div className="space-y-1.5">
-              <div className="relative">
-                <input
-                  type="file"
-                  id="admin-wali-file-input"
-                  accept=".xlsx,.xls,.csv"
-                  onChange={handleWaliFileChange}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                />
-                <div className="w-full bg-[#0f1219] border border-slate-800 rounded-xl px-4 py-2.5 flex items-center justify-between text-xs text-slate-400">
-                  <span className="truncate font-medium max-w-[220px] text-slate-300">
-                    {waliFile ? waliFile.name : 'Pilih file excel wali kelas...'}
-                  </span>
-                  <Upload className="w-4 h-4 text-slate-500" />
-                </div>
-              </div>
-            </div>
-
-            {/* Wali Kelas Preview Table */}
-            {waliPreview.length > 0 && (
-              <div className="bg-[#0f1219] p-3 rounded-2xl border border-slate-800 space-y-2 animate-in fade-in duration-200">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500">Pratinjau Wali Kelas</span>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-4xs">
-                    <thead>
-                      <tr className="text-slate-500 border-b border-slate-800">
-                        <th className="pb-1 font-medium">Nama Kelas Target</th>
-                        <th className="pb-1 font-medium">Username Wali Kelas</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-800">
-                      {waliPreview.map((item, idx) => (
-                        <tr key={idx} className="text-slate-300">
-                          <td className="py-1.5 font-bold text-slate-200">{item.nama_kelas}</td>
-                          <td className="py-1.5 font-mono text-slate-400">{item.username_guru}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="pt-4 space-y-2">
-            <button
-              onClick={handleUploadWali}
-              disabled={!waliFile}
-              className={`w-full py-2.5 rounded-xl font-bold flex items-center justify-center space-x-2 transition duration-300 text-3xs ${
-                waliFile
-                  ? 'bg-emerald-600 text-white hover:bg-emerald-500 cursor-pointer shadow-md'
-                  : 'bg-[#111622] border border-slate-850 text-slate-500 cursor-not-allowed'
-              }`}
-            >
-              <Upload className="w-3.5 h-3.5" />
-              <span>Unggah File Wali Kelas</span>
-            </button>
-
-            {waliImportStatus.message && (
-              <div className={`p-3 rounded-xl border text-4xs flex items-start space-x-2 ${
-                waliImportStatus.type === 'success'
-                  ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-400'
-                  : 'bg-rose-950/20 border-rose-500/30 text-rose-450'
-              }`}>
-                <CheckCircle2 className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${
-                  waliImportStatus.type === 'success' ? 'text-emerald-500' : 'text-rose-500'
-                }`} />
-                <span>{waliImportStatus.message}</span>
-              </div>
-            )}
-          </div>
+        <div className="text-2xs font-mono font-bold text-blue-400 bg-blue-950/40 px-3 py-1.5 border border-blue-500/10 rounded-xl shrink-0">
+          STATUS: AKTIF DI MENU UPLOAD
         </div>
-
       </div>
     </div>
   );

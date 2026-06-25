@@ -36,6 +36,7 @@ export default function NilaiView({
   selectedClassId,
   onClassChange,
 }: NilaiViewProps) {
+  const isLight = typeof document !== 'undefined' && document.documentElement.classList.contains('theme-light');
   const getAuthHeader = () => {
     try {
       const saved = sessionStorage.getItem('simibu_user');
@@ -411,9 +412,9 @@ export default function NilaiView({
             onChange={(e) => onClassChange(Number(e.target.value))}
             className="px-3 py-2 bg-blue-950/40 border border-blue-500/30 rounded-xl text-xs font-bold text-blue-400 focus:outline-none"
           >
-            <option value="" className="bg-[#161b22] text-slate-300">-- Pilih Kelas --</option>
+            <option value="" className={isLight ? 'bg-white text-slate-800' : 'bg-[#161b22] text-slate-300'}>-- Pilih Kelas --</option>
             {classes.map((k) => (
-              <option key={k.id} value={k.id} className="bg-[#161b22] text-slate-300">{k.nama_kelas}</option>
+              <option key={k.id} value={k.id} className={isLight ? 'bg-white text-slate-800' : 'bg-[#161b22] text-slate-300'}>{k.nama_kelas}</option>
             ))}
           </select>
         </div>
@@ -459,9 +460,13 @@ export default function NilaiView({
                       }`}
                     >
                       <div className="flex justify-between items-start mb-3 gap-3">
-                        <div className="min-w-0">
+                        <div 
+                          className="min-w-0 cursor-pointer group"
+                          onClick={() => (window as any).showStudentProfile?.(s.nis)}
+                          title="Klik untuk detail riwayat & nilai siswa"
+                        >
                           <div className="flex items-center space-x-1.5 flex-wrap gap-y-1">
-                            <h5 className="font-bold text-slate-200 text-sm truncate">{s.nama}</h5>
+                            <h5 className="font-bold text-slate-200 text-sm truncate group-hover:text-blue-400 group-hover:underline transition-colors">{s.nama}</h5>
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                               isRemedial
                                 ? 'bg-rose-950/40 text-rose-450 border-rose-500/20'
@@ -470,8 +475,8 @@ export default function NilaiView({
                               {isRemedial ? 'Remedial' : 'Tuntas (Pass)'}
                             </span>
                           </div>
-                          <span className="font-mono text-3xs text-slate-500 font-bold mt-0.5 inline-block">
-                            NIS: {s.nis}
+                          <span className="font-mono text-3xs text-slate-500 font-bold mt-0.5 inline-block group-hover:text-blue-400 transition-colors">
+                            NIS: {s.nis} &bull; Lihat detail &rarr;
                           </span>
                         </div>
 

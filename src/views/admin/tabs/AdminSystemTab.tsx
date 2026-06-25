@@ -25,90 +25,20 @@ export default function AdminSystemTab(props: AdminTabProps) {
   return (
     <div className="space-y-6">
           
-          {/* Student Promotion Tool Section */}
-          <div className="p-6 bg-[#161b22] border border-slate-800 rounded-3xl space-y-5 shadow-xl">
-            <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
-              <div className="p-2.5 bg-blue-600/10 border border-blue-500/20 rounded-2xl">
+          {/* Student Promotion Tool Section - Consolidated Notice */}
+          <div className="bg-[#161b22] border border-slate-800 p-6 rounded-3xl shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-blue-600/10 border border-blue-500/20 rounded-2xl shrink-0">
                 <GraduationCap className="w-5 h-5 text-blue-400" />
               </div>
               <div>
-                <h5 className="font-bold text-slate-100 text-sm">Pemeliharaan Akhir Tahun (Promosi & Kelulusan)</h5>
-                <p className="text-3xs text-slate-500 font-bold uppercase tracking-wider font-mono">Student Lifecycle & Promotion Engineering</p>
+                <h5 className="font-bold text-slate-100 text-sm">Pemeliharaan Kenaikan Kelas &amp; Pelulusan</h5>
+                <p className="text-xs text-slate-400 mt-1">
+                  Fitur kenaikan kelas masal &amp; pelulusan siswa telah dipindahkan ke tab menu utama <strong className="text-blue-400">Upload</strong> untuk mempermudah alur kerja.
+                </p>
               </div>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-2xs font-extrabold uppercase text-slate-500 tracking-wider">Aksi Manajemen</label>
-                <select
-                  className="w-full px-4 py-2.5 bg-[#0f1219] border border-slate-800 rounded-xl text-xs focus:outline-none focus:border-blue-500 font-semibold text-slate-350"
-                  value={promotionMode}
-                  onChange={(e) => setPromotionMode(e.target.value as any)}
-                >
-                  <option value="promote">Naikkan Kelas (Promosi)</option>
-                  <option value="graduate">Luluskan Siswa (Set Alumni)</option>
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-2xs font-extrabold uppercase text-slate-500 tracking-wider">Kelas Asal (Sumber)</label>
-                <select
-                  className="w-full px-4 py-2.5 bg-[#0f1219] border border-slate-800 rounded-xl text-xs focus:outline-none focus:border-blue-500 font-semibold text-slate-350"
-                  value={promotionSourceClass}
-                  onChange={(e) => setPromotionSourceClass(e.target.value)}
-                >
-                  <option value="">-- Pilih Kelas Asal --</option>
-                  {classes.map(c => (
-                    <option key={c.id} value={c.id}>{c.nama_kelas}</option>
-                  ))}
-                </select>
-              </div>
-
-              {promotionMode === 'promote' && (
-                <div className="space-y-1.5">
-                  <label className="text-2xs font-extrabold uppercase text-slate-500 tracking-wider">Kelas Target (Tujuan Naik)</label>
-                  <select
-                    className="w-full px-4 py-2.5 bg-[#0f1219] border border-slate-800 rounded-xl text-xs focus:outline-none focus:border-blue-500 font-semibold text-slate-350"
-                    value={promotionTargetClass}
-                    onChange={(e) => setPromotionTargetClass(e.target.value)}
-                  >
-                    <option value="">-- Pilih Kelas Target --</option>
-                    {classes.map(c => (
-                      <option key={c.id} value={c.id}>{c.nama_kelas}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-end">
-              <button
-                onClick={handleBulkAction}
-                disabled={promoting || !promotionSourceClass}
-                className={`flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-bold transition-all shadow-lg ${
-                  promoting || !promotionSourceClass
-                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
-                    : promotionMode === 'promote'
-                      ? 'bg-blue-600 text-white hover:bg-blue-500 border border-blue-400/20'
-                      : 'bg-rose-600 text-white hover:bg-rose-500 border border-rose-400/20'
-                }`}
-              >
-                {promoting ? (
-                  <RotateCcw className="w-4 h-4 animate-spin" />
-                ) : promotionMode === 'promote' ? (
-                  <Plus className="w-4 h-4" />
-                ) : (
-                  <GraduationCap className="w-4 h-4" />
-                )}
-                <span>{promoting ? 'Memproses...' : promotionMode === 'promote' ? 'Eksekusi Kenaikan Kelas' : 'Eksekusi Pelulusan Siswa'}</span>
-              </button>
-            </div>
-
-            <div className="p-4 bg-blue-900/10 border border-blue-500/20 rounded-2xl">
-              <p className="text-[10px] text-blue-400 leading-relaxed font-medium">
-                <strong>Tips:</strong> Untuk mengubah nama kelas secara global (misalnya dari "X DKV 1" menjadi "XI DKV 1"), Anda dapat melakukannya di tab Katalog. Gunakan alat ini khusus untuk memindahkan <strong>penduduk siswa</strong> dari satu ID kelas ke ID kelas lainnya yang sudah ada.
-              </p>
-            </div>
+            <span className="text-[10px] bg-blue-500/10 border border-blue-500/20 text-blue-400 px-3 py-1.5 rounded-xl font-bold font-mono shrink-0">DIPINDAHKAN</span>
           </div>
 
           {/* Metadata Cards */}
@@ -238,169 +168,35 @@ export default function AdminSystemTab(props: AdminTabProps) {
               )}
             </div>
 
-            {/* Column 2: System Patches & Version Repairs (7 cols wide on large screens) */}
-            <div className="lg:col-span-7 bg-[#161b22] border border-slate-800 p-6 rounded-3xl space-y-5 shadow-xl relative overflow-hidden">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-slate-800 pb-4 gap-4">
-                <div className="flex items-center gap-3">
+            {/* Column 2: System Patches consolidated notice */}
+            <div className="lg:col-span-7 bg-[#161b22] border border-slate-800 p-6 rounded-3xl shadow-xl flex flex-col justify-between space-y-4">
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
                   <div className="p-2.5 bg-blue-600/10 border border-blue-500/20 rounded-2xl">
                     <Wrench className="w-5 h-5 text-blue-400" />
                   </div>
                   <div>
-                    <h5 className="font-bold text-slate-100 text-sm">Pembaruan & Perbaikan Sistem (Patch Update)</h5>
-                    <p className="text-3xs text-slate-500 font-bold uppercase tracking-wider font-mono">System Patch Registry & Interactive Hotfixes</p>
+                    <h5 className="font-bold text-slate-100 text-sm">Pembaruan &amp; Patch Sistem</h5>
+                    <p className="text-3xs text-slate-500 font-bold uppercase tracking-wider font-mono">Unified Patching &amp; Update System</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="px-3 py-1 bg-[#0f1219] border border-slate-800 rounded-full text-3xs font-bold text-blue-400 font-mono">
-                    v1.4.0-STABLE
-                  </span>
-                  {systemPatches.filter(p => p.status === 'pending').length > 0 && (
-                    <button
-                      onClick={handleApplyAllPatches}
-                      disabled={patchActionLoading !== null}
-                      className={`px-4 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-550 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border border-blue-450/25 transition-all shadow-md cursor-pointer ${
-                        patchActionLoading === 'ALL' ? 'opacity-70' : ''
-                      }`}
-                    >
-                      {patchActionLoading === 'ALL' ? (
-                        <RotateCcw className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <Cpu className="w-3.5 h-3.5" />
-                      )}
-                      <span>{patchActionLoading === 'ALL' ? 'Menerapkan...' : 'Terapkan Semua Patch'}</span>
-                    </button>
-                  )}
+                
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Seluruh modul pembaruan basis data (Hotfix, Bugfix, SQL patches, dan file update registri) kini dipusatkan di bawah tab menu utama <strong className="text-blue-400">Upload</strong>.
+                </p>
+
+                <div className="p-4 bg-slate-900/40 border border-slate-850 rounded-2xl flex gap-2.5 text-[10px] text-slate-450">
+                  <Cpu className="w-4.5 h-4.5 text-indigo-400 shrink-0" />
+                  <p className="leading-normal font-medium">
+                    Ini membantu administrator mengelola seluruh unggahan sistem, restorasi database, dan perbaikan basis data secara terpadu tanpa berpindah-pindah menu.
+                  </p>
                 </div>
               </div>
-
-              {/* Patch Alerts */}
-              {patchAlert && (
-                <div className={`p-4 rounded-2xl flex items-start gap-3 border text-xs font-semibold ${
-                  patchAlert.type === 'success'
-                    ? 'bg-emerald-950/20 border-emerald-500/20 text-emerald-400'
-                    : 'bg-rose-950/20 border-rose-500/20 text-rose-400'
-                }`}>
-                  <div className="mt-0.5">
-                    {patchAlert.type === 'success' ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                    ) : (
-                      <ShieldAlert className="w-4 h-4 text-rose-400" />
-                    )}
-                  </div>
-                  <div className="flex-1 space-y-1">
-                    <p className="font-bold">{patchAlert.type === 'success' ? 'Berhasil menerapkan patch!' : 'Penerapan patch gagal'}</p>
-                    <p className="text-3xs text-slate-400 leading-relaxed">{patchAlert.message}</p>
-                  </div>
-                  <button onClick={() => setPatchAlert(null)} className="text-slate-500 hover:text-slate-350 cursor-pointer">
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-
-              {/* Drag & Drop Patch File Uploader */}
-              <div 
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                className={`border-2 border-dashed rounded-2xl p-5 text-center transition-all cursor-pointer relative ${
-                  isDragging 
-                    ? 'border-blue-500 bg-blue-500/10 text-blue-450' 
-                    : 'border-slate-800 bg-[#0f1219]/60 hover:border-slate-700 hover:bg-[#0f1219] text-slate-400'
-                }`}
-              >
-                <input 
-                  type="file" 
-                  id="patch-file-input"
-                  accept=".json,.sql,.zip"
-                  onChange={(e) => {
-                    const files = e.target.files;
-                    if (files && files.length > 0) {
-                      handlePatchUpload(files[0]);
-                    }
-                  }}
-                  className="hidden"
-                />
-                <label htmlFor="patch-file-input" className="cursor-pointer block space-y-2">
-                  <div className="flex justify-center">
-                    <div className="p-2.5 bg-blue-600/10 border border-blue-500/20 rounded-2xl">
-                      <Upload className={`w-5 h-5 text-blue-400 ${uploadingPatch ? 'animate-bounce' : ''}`} />
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-xs font-bold text-slate-200 block">
-                      {uploadingPatch ? 'Sedang memproses berkas patch...' : 'Unggah / Daftarkan Patch Baru (.zip / .json / .sql)'}
-                    </span>
-                    <span className="text-3xs text-slate-500 font-medium block mt-1">
-                      Seret & jatuhkan file ZIP di sini atau klik untuk menelusuri penyimpanan lokal
-                    </span>
-                  </div>
-                </label>
+              
+              <div className="border-t border-slate-850 pt-3 flex items-center justify-between text-[10px] text-slate-500 font-mono">
+                <span>STATUS MODUL</span>
+                <span className="font-bold text-emerald-400">AKTIF / TERPUSAT</span>
               </div>
-
-              {loadingPatches ? (
-                <div className="py-20 flex flex-col items-center justify-center space-y-3">
-                  <RotateCcw className="w-8 h-8 text-blue-500 animate-spin" />
-                  <span className="text-xs text-slate-450 font-bold font-mono">Menyelaraskan registri patch...</span>
-                </div>
-              ) : systemPatches.length > 0 ? (
-                <div className="space-y-4 max-h-[380px] overflow-y-auto pr-1">
-                  {systemPatches.map((patch) => (
-                    <div 
-                      key={patch.id} 
-                      className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
-                        patch.status === 'applied'
-                          ? 'bg-[#0f1219]/40 border-slate-850/80'
-                          : 'bg-[#0f1219] border-slate-800 hover:border-blue-500/30'
-                      }`}
-                    >
-                      <div className="space-y-2 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="px-2 py-0.5 bg-[#161b22] border border-slate-800 rounded-full text-[9px] font-extrabold text-slate-450 font-mono">
-                            {patch.id}
-                          </span>
-                          <span className={`px-2 py-0.5 text-[9px] font-extrabold rounded-full font-mono uppercase ${
-                            patch.kategori === 'Database'
-                              ? 'bg-purple-550/10 text-purple-400 border border-purple-500/20'
-                              : patch.kategori === 'Bug Fix'
-                                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                                : patch.kategori === 'Keamanan'
-                                  ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                                  : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                          }`}>
-                            {patch.kategori}
-                          </span>
-                        </div>
-                        <h6 className="font-bold text-slate-200 text-xs">{patch.nama_patch}</h6>
-                        <p className="text-3xs text-slate-500 leading-relaxed">{patch.deskripsi}</p>
-                        
-                        {patch.status === 'applied' && patch.applied_at && (
-                          <p className="text-[9px] text-slate-550 font-mono">
-                            DITERAPKAN: {new Date(patch.applied_at).toLocaleString('id-ID')}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="flex items-center">
-                        {patch.status === 'applied' ? (
-                          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-950/20 border border-emerald-500/25 rounded-xl text-emerald-400 text-xs font-bold">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Aktif</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-950/20 border border-amber-500/25 rounded-xl text-amber-400 text-xs font-bold">
-                            <RotateCcw className={`w-3.5 h-3.5 ${patchActionLoading === 'ALL' || patchActionLoading === patch.id ? 'animate-spin' : ''}`} />
-                            <span>Menunggu</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="py-12 text-center text-slate-500 text-xs">
-                  Tidak ada repositori patch sistem yang tersedia saat ini.
-                </div>
-              )}
             </div>
 
           </div>

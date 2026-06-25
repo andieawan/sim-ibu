@@ -286,9 +286,13 @@ export default function WaliKelasView({ currentUser, classes, onNavigateToTab }:
                                 <div className="w-8 h-8 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center font-bold text-blue-400 group-hover:border-blue-500/30 transition text-2xs">
                                   {idx + 1}
                                 </div>
-                                <div className="space-y-0.5">
-                                  <span className="font-bold text-slate-200 block text-xs group-hover:text-blue-450 transition">{s.nama}</span>
-                                  <span className="text-[10px] font-mono text-slate-500 font-semibold uppercase tracking-wider">NIS: {s.nis}</span>
+                                <div 
+                                  className="space-y-0.5 cursor-pointer"
+                                  onClick={() => (window as any).showStudentProfile?.(s.nis)}
+                                  title="Klik untuk detail siswa"
+                                >
+                                  <span className="font-bold text-slate-200 block text-xs group-hover:text-blue-400 group-hover:underline transition">{s.nama}</span>
+                                  <span className="text-[10px] font-mono text-slate-500 font-semibold uppercase tracking-wider group-hover:text-blue-400 transition">NIS: {s.nis} &bull; Detail &rarr;</span>
                                 </div>
                               </div>
                             </td>
@@ -380,13 +384,18 @@ export default function WaliKelasView({ currentUser, classes, onNavigateToTab }:
                       <span className="text-xs font-bold text-slate-200 uppercase tracking-tight">Presensi Rendah (&lt;85%)</span>
                     </div>
 
-                    {lowAttendanceStudents.length === 0 ? (
+                     {lowAttendanceStudents.length === 0 ? (
                       <div className="py-4 text-center text-slate-600 text-[11px] font-medium">Bagus! Seluruh siswa bimbingan rajin hadir.</div>
                     ) : (
                       <div className="space-y-2">
                         {lowAttendanceStudents.map(s => (
-                          <div key={s.nis} className="flex justify-between items-center text-xs p-2.5 bg-[#0f1219] rounded-xl border border-slate-850 hover:border-slate-800 transition">
-                            <span className="font-semibold text-slate-300 truncate max-w-[140px]">{s.nama}</span>
+                          <div 
+                            key={s.nis} 
+                            onClick={() => (window as any).showStudentProfile?.(s.nis)}
+                            className="flex justify-between items-center text-xs p-2.5 bg-[#0f1219] hover:bg-slate-800/60 rounded-xl border border-slate-850 hover:border-slate-700 transition cursor-pointer group"
+                            title="Klik untuk detail"
+                          >
+                            <span className="font-semibold text-slate-300 truncate max-w-[140px] group-hover:text-blue-400 transition-colors">{s.nama}</span>
                             <span className="font-mono text-amber-400 font-extrabold text-[11px]">{s.attendance_rate}% hadir</span>
                           </div>
                         ))}
@@ -408,8 +417,13 @@ export default function WaliKelasView({ currentUser, classes, onNavigateToTab }:
                     ) : (
                       <div className="space-y-2">
                         {lowGradeStudents.map(s => (
-                          <div key={s.nis} className="flex justify-between items-center text-xs p-2.5 bg-[#0f1219] rounded-xl border border-slate-850 hover:border-slate-800 transition">
-                            <span className="font-semibold text-slate-300 truncate max-w-[140px]">{s.nama}</span>
+                          <div 
+                            key={s.nis} 
+                            onClick={() => (window as any).showStudentProfile?.(s.nis)}
+                            className="flex justify-between items-center text-xs p-2.5 bg-[#0f1219] hover:bg-slate-800/60 rounded-xl border border-slate-850 hover:border-slate-700 transition cursor-pointer group"
+                            title="Klik untuk detail"
+                          >
+                            <span className="font-semibold text-slate-300 truncate max-w-[140px] group-hover:text-blue-400 transition-colors">{s.nama}</span>
                             <span className="font-mono text-rose-400 font-extrabold text-[11px]">{s.average_grade} IP</span>
                           </div>
                         ))}

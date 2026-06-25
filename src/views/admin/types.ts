@@ -134,4 +134,12 @@ export interface AdminTabProps {
   handleDrop: (e: any) => void;
   handlePatchUpload: (file: any) => void;
   handleResetDatabase: () => void;
+  
+  // Codebase-wide hot reload states
+  codebaseCheckResult: any;
+  setCodebaseCheckResult: (v: any) => void;
+  uploadedBase64Zip: string;
+  setUploadedBase64Zip: (v: string) => void;
+  applyingCodebaseUpdate: boolean;
+  handleApplyCodebaseUpdate: () => void;
 }

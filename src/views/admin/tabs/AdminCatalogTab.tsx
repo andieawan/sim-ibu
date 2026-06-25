@@ -25,122 +25,25 @@ export default function AdminCatalogTab(props: AdminTabProps) {
   return (
     <div className="space-y-6">
 
-          {/* Spreadsheet Upload Section */}
-          <div className="bg-[#161b22] p-6 rounded-3xl border border-slate-800 space-y-5 shadow-2xl relative overflow-hidden">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          {/* ============================================================================
+              PEMBERITAHUAN NAVIGASI MENU UPLOAD DEDIKASI (BAHASA INDONESIA)
+              Maksud Bisnis: Memberikan petunjuk transisi visual kepada administrator bahwa
+              fitur impor data masal telah dipindahkan ke menu tab khusus "Upload" demi kerapian
+              tampilan direktori katalog.
+             ============================================================================ */}
+          <div className="bg-slate-900/40 border border-slate-800 p-4 rounded-2xl flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-600/10 border border-blue-500/20 rounded-xl shrink-0">
+                <Upload className="w-4 h-4 text-blue-400" />
+              </div>
               <div>
-                <h4 className="text-base font-bold text-slate-100 flex items-center gap-2">
-                  <Upload className="w-5 h-5 text-blue-400" />
-                  <span>Unggah Daftar Siswa (Spreadsheet Excel / CSV)</span>
-                </h4>
-                <p className="text-slate-400 text-xs mt-0.5">Tambah hingga puluhan siswa sekaligus ke kelas tertentu lewat file .xlsx, .xls, atau .csv.</p>
-              </div>
-              <button 
-                onClick={downloadSampleCSV}
-                className="flex items-center space-x-1.5 text-xs text-blue-400 bg-blue-900/30 border border-blue-500/30 px-3 py-2 rounded-xl hover:bg-blue-900/50 font-bold transition cursor-pointer self-start sm:self-auto shrink-0"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Unduh Format Excel (.xlsx)</span>
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Select target class */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-400 block">1. Pilih Kelas Target</label>
-                <select
-                  value={selectedClassForImport}
-                  onChange={(e) => setSelectedClassForImport(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-[#0f1219] border border-slate-800 rounded-xl text-slate-300 text-xs focus:outline-none focus:border-blue-500 font-medium"
-                >
-                  <option value="">-- Pilih Kelas Target --</option>
-                  {classes.map((k) => (
-                    <option key={k.id} value={k.id} className="bg-[#0f1219] text-slate-300">{k.nama_kelas}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Upload file button replacement */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-400 block">2. Ambil File Spreadsheet (.xlsx, .xls, .csv)</label>
-                <div className="relative">
-                  <input
-                    type="file"
-                    id="admin-csv-file-input"
-                    accept=".xlsx,.xls,.csv"
-                    onChange={handleFileChange}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                  />
-                  <div className="w-full bg-[#0f1219] border border-slate-800 rounded-xl px-4 py-2.5 flex items-center justify-between text-xs text-[#8fa0ba]">
-                    <span className="truncate font-medium max-w-[200px] text-slate-350">
-                      {csvFile ? csvFile.name : 'Pilih file excel / csv...'}
-                    </span>
-                    <Upload className="w-4 h-4 text-slate-500" />
-                  </div>
-                </div>
+                <p className="text-xs font-bold text-slate-200">Menu Impor Data Dipindahkan</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">Fitur unggah data siswa via Excel/CSV kini memiliki tab menu khusus yang lebih lengkap.</p>
               </div>
             </div>
-
-            {/* CSV File Parser Preview */}
-            {csvPreview.length > 0 && (
-              <div className="bg-[#0f1219] p-4 rounded-2xl border border-slate-800 space-y-2">
-                <span className="text-2xs font-bold uppercase tracking-wider text-slate-500">Pratinjau Data (Maks. 5 baris pertama)</span>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="text-slate-500 border-b border-slate-800">
-                        <th className="pb-1.5 font-medium">NIS</th>
-                        <th className="pb-1.5 font-medium">Nama Siswa</th>
-                        <th className="pb-1.5 font-medium text-center font-mono">L/P</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-800">
-                      {csvPreview.map((item, idx) => (
-                        <tr key={idx} className="text-slate-300">
-                          <td className="py-2 font-mono text-slate-400">{item.nis}</td>
-                          <td className="py-2 font-semibold text-slate-200">{item.nama}</td>
-                          <td className="py-2 text-center">
-                            <span className={`px-2 py-0.5 rounded-full text-3xs font-bold leading-none ${
-                              item.jenis_kelamin === 'L' ? 'bg-blue-900/40 text-blue-400 border border-blue-500/20' : 'bg-pink-900/40 text-pink-400 border border-pink-500/20'
-                            }`} title={item.jenis_kelamin === 'L' ? 'Laki-laki' : 'Perempuan'}>
-                              {item.jenis_kelamin}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* Upload Button action */}
-            <button
-              onClick={handleUploadCSV}
-              disabled={!csvFile || !selectedClassForImport}
-              className={`w-full py-3 rounded-xl font-bold flex items-center justify-center space-x-2 shadow-sm transition duration-300 text-xs ${
-                csvFile && selectedClassForImport
-                  ? 'bg-blue-600 text-white hover:bg-blue-500 cursor-pointer'
-                  : 'bg-[#111622] border border-slate-850 text-slate-500 cursor-not-allowed'
-              }`}
-            >
-              <Upload className="w-4 h-4" />
-              <span>Unggah Spreadsheet ke Database</span>
-            </button>
-
-            {importStatus.message && (
-              <div className={`p-4 rounded-xl border text-xs flex items-start space-x-2.5 ${
-                importStatus.type === 'success'
-                  ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-400'
-                  : 'bg-rose-950/20 border-rose-500/30 text-rose-450'
-              }`}>
-                <CheckCircle2 className={`w-4 h-4 mt-0.5 shrink-0 ${
-                  importStatus.type === 'success' ? 'text-emerald-500' : 'text-rose-500'
-                }`} />
-                <span>{importStatus.message}</span>
-              </div>
-            )}
+            <span className="text-[10px] bg-blue-500/10 border border-blue-500/20 text-blue-400 px-2.5 py-1 rounded-lg font-bold">MANDIRI</span>
           </div>
+          {/* === AKHIR DARI PEMBERITAHUAN NAVIGASI === */}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             

@@ -1,5 +1,5 @@
 import { useState, FormEvent } from 'react';
-import { User, LogOut, Shield, Key, Check, X, Camera, Palette, Sun, Moon, DownloadCloud } from 'lucide-react';
+import { User, LogOut, Shield, Key, Check, X, Camera, Palette, Sun, Moon, DownloadCloud, Bookmark } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Pengguna } from '../types';
 
@@ -10,9 +10,10 @@ interface ProfileMenuProps {
   theme: string;
   onThemeChange: (theme: string) => void;
   onUpdateUser: (updatedUser: Pengguna) => void;
+  onOpenChangelog: () => void;
 }
 
-export default function ProfileMenu({ user, onLogout, onClose, theme, onThemeChange, onUpdateUser }: ProfileMenuProps) {
+export default function ProfileMenu({ user, onLogout, onClose, theme, onThemeChange, onUpdateUser, onOpenChangelog }: ProfileMenuProps) {
   const [isEditing, setIsEditing] = useState(false);
   const isStandalone = typeof window !== 'undefined' && (
     window.matchMedia('(display-mode: standalone)').matches || 
@@ -188,6 +189,31 @@ export default function ProfileMenu({ user, onLogout, onClose, theme, onThemeCha
                       <span>{t.label}</span>
                     </button>
                   ))}
+                </div>
+              </div>
+
+              {/* Versi & Log Pembaruan */}
+              <div className="space-y-3 pt-4 border-t border-slate-800">
+                <h4 className="text-[10px] uppercase font-bold text-slate-500 tracking-widest flex items-center gap-2">
+                  <Bookmark className="w-3.5 h-3.5 text-blue-400" />
+                  Sistem Informasi Versi
+                </h4>
+                <div 
+                  onClick={onOpenChangelog}
+                  className="bg-[#161b22] border border-blue-500/20 hover:border-blue-500/40 p-4 rounded-2xl flex flex-col items-start gap-3 cursor-pointer group transition duration-300"
+                >
+                  <div className="space-y-1 text-left w-full">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-slate-200 block group-hover:text-blue-400 transition-colors">SIM-IBU v2.2.0-Stabil</span>
+                      <span className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-md text-[8px] font-extrabold uppercase font-mono tracking-wider">Aktif</span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 leading-relaxed font-semibold">
+                      Aplikasi telah berhasil diperbarui. Klik di sini untuk melihat catatan rilis lengkap, perbaikan bug mode terang, dan daftar fitur tambahan.
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-bold text-blue-400 group-hover:underline flex items-center gap-1 self-end transition">
+                    Lihat Log Pembaruan &rarr;
+                  </span>
                 </div>
               </div>
 
