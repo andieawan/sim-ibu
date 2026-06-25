@@ -18,8 +18,7 @@ const sessionOptions = {
   password: process.env.COOKIE_PASSWORD || 'complex_password_at_least_32_characters_long',
   cookieName: 'si-gup-session',
   cookieOptions: {
-    secure: true, // Requires HTTPS, which AI Studio provides
-    sameSite: 'none' as const,
+    secure: process.env.NODE_ENV === 'production',
   },
 };
 

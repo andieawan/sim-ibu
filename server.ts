@@ -9,9 +9,7 @@ import { db } from './server/db';
 import apiRouter from './server/routes';
 
 const app = express();
-app.set('trust proxy', 1);
 const PORT = 3000;
-const HOST = '0.0.0.0';
 
 // Improve API Server Performance & Load Times
 app.use(compression());
@@ -100,14 +98,8 @@ async function startServer() {
     console.log('Serving production build from:', distPath);
   }
 
-  app.listen(PORT, HOST, () => {
-    console.log(`SiGup Full-Stack application is active on http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
-  }).on('error', (err) => {
-    if ((err as NodeJS.ErrnoException).code === 'EADDRINUSE') {
-      console.error(`Port ${PORT} is already in use. Set a different PORT in your environment or stop the process using it.`);
-      process.exit(1);
-    }
-    throw err;
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`SiGup Full-Stack application is active on http://localhost:${PORT}`);
   });
 }
 

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Layers, Plus, X, GraduationCap, Sparkles, BookOpen, LogOut, Palette, Sun, Moon, BarChart3, User as UserIcon } from 'lucide-react';
 import { Kelas, Pengguna } from './types';
-import { fetchWithCache, ApiError } from './utils';
 import Navbar from './components/Navbar';
 import HomeView from './views/common/HomeView';
 import AbsensiView from './views/guru/AbsensiView';
@@ -70,17 +69,13 @@ export default function App() {
   // FAB overlay menu state
   const [showFabMenu, setShowFabMenu] = useState<boolean>(false);
 
-  const getAuthHeader = () => {
-    if (currentUser?.token) {
-      return { 'Authorization': `Bearer ${currentUser.token}` };
-    }
-    return {};
-  };
-
   const fetchSchoolIdentity = async () => {
     try {
-      const data = await fetchWithCache('/api/school-identity', 60000); // 1 minute cache
-      setSchoolIdentity(data);
+      const res = await fetch('/api/school-identity');
+      if (res.ok) {
+        const data = await res.json();
+        setSchoolIdentity(data);
+      }
     } catch (err) {
       console.error('Error fetching global school identity:', err);
     }
@@ -89,10 +84,13 @@ export default function App() {
   const fetchClasses = async () => {
     setLoadingClasses(true);
     try {
-      const data = await fetchWithCache('/api/kelas', 60000, getAuthHeader()); // 1 minute cache
-      setClasses(data);
-      if (data.length > 0 && !selectedClassId) {
-        setSelectedClassId(data[0].id);
+      const res = await fetch('/api/kelas');
+      if (res.ok) {
+        const data = await res.json();
+        setClasses(data);
+        if (data.length > 0 && !selectedClassId) {
+          setSelectedClassId(data[0].id);
+        }
       }
     } catch (err) {
       console.error('Error fetching classes:', err);
@@ -118,23 +116,9 @@ export default function App() {
       }
     };
     fetchConfig();
+    fetchClasses();
     fetchSchoolIdentity();
-    
-    const handleAuthError = () => {
-      sessionStorage.removeItem('simibu_user');
-      setCurrentUser(null);
-    };
-    window.addEventListener('auth-error', handleAuthError);
-    return () => {
-      window.removeEventListener('auth-error', handleAuthError);
-    };
   }, []);
-
-  useEffect(() => {
-    if (currentUser) {
-      fetchClasses();
-    }
-  }, [currentUser]);
 
   // ============================================================================
   // SINKRONISASI TEMA AKTIF KE ROOT <html>
@@ -193,18 +177,11 @@ export default function App() {
     const academicInfo = `[${schoolIdentity.tahun_pelajaran} - ${schoolIdentity.semester}]`;
     switch (currentTab) {
       case 'beranda':
-        // === LOGIKA PENENTUAN GRITING USER (WALI MURID / STAF / GURU) ===
-        // Maksud Bisnis: Menampilkan pesan sambutan yang relevan dan ramah untuk Wali Murid
-        // berdasarkan kelas bimbingan mereka, atau pesan penugasan kembali untuk Guru/Staf.
-        // Aliran Data:
-        // - Input: currentUser (objek pengguna aktif beserta perannya) dan classes (daftar kelas sekolah)
-        // - Output: String teks sambutan beserta informasi akademis tahun ajaran aktif
-        if (currentUser?.role === 'wali_murid' || currentUser?.role?.includes('wali')) {
-          const waliMuridClass = classes.find(c => Number(c.id) === Number(currentUser?.kelas_id));
-          return `${academicInfo} Selamat Datang, Wali Murid Kelas ${waliMuridClass?.nama_kelas || 'X DKV 1'}!`;
+        if (currentUser?.role === 'wali_murid') {
+          const waliMuridClass = classes.find(c => c.id === currentUser?.kelas_id);
+          return `${academicInfo} Selamat Datang, Wali Murid Kelas ${waliMuridClass?.nama_kelas || '...'}`;
         }
         return `${academicInfo} Selamat bertugas kembali, ${currentUser?.nama || currentUser?.username} (${currentUser?.role === 'admin' ? 'Administrator' : 'Guru'})!`;
-        // === AKHIR LOGIKA PENENTUAN GRITING USER ===
       case 'absensi':
         return `${academicInfo} Memantau presensi harian kelas bimbingan`;
       case 'nilai':
@@ -228,7 +205,7 @@ export default function App() {
         appEnv={appEnv}
         onLoginSuccess={(user) => {
           setCurrentUser(user);
-          sessionStorage.setItem('simibu_user', JSON.stringify(user));
+          sessionStorage.setItem('sigup_user', JSON.stringify(user));
         }}
       />
     );
