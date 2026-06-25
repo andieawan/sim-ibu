@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Layers, Plus, X, GraduationCap, Sparkles, BookOpen, LogOut, Palette, Sun, Moon, BarChart3, User as UserIcon } from 'lucide-react';
 import { Kelas, Pengguna } from './types';
-import { fetchWithCache } from './utils';
+import { fetchWithCache, ApiError } from './utils';
 import Navbar from './components/Navbar';
 import HomeView from './views/common/HomeView';
 import AbsensiView from './views/guru/AbsensiView';
@@ -118,9 +118,23 @@ export default function App() {
       }
     };
     fetchConfig();
-    fetchClasses();
     fetchSchoolIdentity();
+    
+    const handleAuthError = () => {
+      sessionStorage.removeItem('simibu_user');
+      setCurrentUser(null);
+    };
+    window.addEventListener('auth-error', handleAuthError);
+    return () => {
+      window.removeEventListener('auth-error', handleAuthError);
+    };
   }, []);
+
+  useEffect(() => {
+    if (currentUser) {
+      fetchClasses();
+    }
+  }, [currentUser]);
 
   // ============================================================================
   // SINKRONISASI TEMA AKTIF KE ROOT <html>

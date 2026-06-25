@@ -9,8 +9,9 @@ import { db } from './server/db';
 import apiRouter from './server/routes';
 
 const app = express();
-const PORT = Number(process.env.PORT || process.env.APP_PORT || 3000);
-const HOST = process.env.HOST || '0.0.0.0';
+app.set('trust proxy', 1);
+const PORT = 3000;
+const HOST = '0.0.0.0';
 
 // Improve API Server Performance & Load Times
 app.use(compression());

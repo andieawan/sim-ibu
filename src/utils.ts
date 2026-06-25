@@ -17,6 +17,15 @@ export const formatIndoDate = (dateStr: string | null | undefined): string => {
   return dateStr;
 };
 
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+    this.name = 'ApiError';
+  }
+}
+
 // Cache simple GET requests to avoid Rate exceeded errors
 const cache = new Map<string, { data: any, timestamp: number }>();
 
@@ -31,7 +40,10 @@ export const fetchWithCache = async (url: string, ttl: number = 5000, headers: H
   const response = await fetch(url, { headers, credentials: 'include' });
   if (!response.ok) {
     console.error(`Error fetchWithCache: ${url} returned ${response.status} ${response.statusText}`);
-    throw new Error(`Failed to fetch ${url}`);
+    if (response.status === 401) {
+      window.dispatchEvent(new Event('auth-error'));
+    }
+    throw new ApiError(`Failed to fetch ${url}`, response.status);
   }
   const data = await response.json();
   cache.set(url, { data, timestamp: now });

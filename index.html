@@ -19,7 +19,7 @@
     <meta name="theme-color" content="#0f1219" />
     
     <!-- iOS support -->
-    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="SIM-IBU" />
     <link rel="apple-touch-icon" href="/icon-192.jpg" />
@@ -57,26 +57,8 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          // Skip service worker registration during local development, because Vite HMR uses WebSocket.
-          if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-            console.log('Service Worker registration skipped in development to avoid HMR socket conflicts.');
-            if ('serviceWorker' in navigator) {
-              navigator.serviceWorker.getRegistrations().then((registrations) => {
-                registrations.forEach((registration) => {
-                  registration.unregister().then((success) => {
-                    if (success) {
-                      console.log('Service Worker unregistered for development.');
-                    }
-                  });
-                });
-              }).catch((error) => {
-                console.warn('Unable to unregister service workers in development:', error);
-              });
-            }
-            return;
-          }
-
-          // Also skip registration inside iframe preview panes.
+          // Skip service worker registration inside iframes (like AI Studio preview panes)
+          // to prevent third-party cookie blocks which cause redirection gates on the server.
           if (window.self !== window.top) {
             console.log('Registrasi Service Worker dilewati di dalam iframe pratinjau AI Studio.');
             return;
