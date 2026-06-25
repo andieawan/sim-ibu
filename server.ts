@@ -99,7 +99,7 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`SiGup Full-Stack application is active on http://localhost:${PORT}`);
+    console.log(`Sim-ibu Full-Stack application is active on http://localhost:${PORT}`);
   });
 }
 
