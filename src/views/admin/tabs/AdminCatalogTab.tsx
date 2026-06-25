@@ -19,8 +19,67 @@ export default function AdminCatalogTab(props: AdminTabProps) {
     setSearchQuery, setSelectedClassFilter, setSelectedClassForImport, handleFileChange, handleUploadCSV, setCsvFile, setCsvPreview, setParsedSiswaList, setImportStatus, handleDeleteStudent, handleDeleteClass, setPromoting, setPromotionMode, setPromotionSourceClass, setPromotionTargetClass, handleBulkAction,
     setSchedViewMode, setSchedSearchQuery, setNewSchedClassId, setNewSchedGuruId, setNewSchedMatpel, setNewSchedHari, setNewSchedMulai, setNewSchedSelesai, setEditingScheduleId, setScheduleDeleteConfirmId, handleAddSchedule, handleEditScheduleClick, handleDeleteSchedule, resetScheduleForm,
     setSchoolIdentity, handleSaveSchoolIdentity, runSystemDiagnostics, handleApplyAllPatches, handleDragOver, handleDragLeave, handleDrop, handlePatchUpload, handleResetDatabase,
-    downloadSampleCSV, exportStudentsToExcel, filteredSiswa, setScheduleAlert, setPatchAlert
+    downloadSampleCSV, exportStudentsToExcel, filteredSiswa, setScheduleAlert, setPatchAlert, setCatalogSiswa
   } = props;
+
+  // State local untuk menyembunyikan/menampilkan Direktori Kelas Aktif
+  const [isClassesHidden, setIsClassesHidden] = React.useState(false);
+
+  // State local untuk manajemen modal edit informasi siswa
+  const [editingStudent, setEditingStudent] = React.useState<any | null>(null);
+  const [editNama, setEditNama] = React.useState('');
+  const [editJk, setEditJk] = React.useState('L');
+  const [editKelasId, setEditKelasId] = React.useState<number | ''>('');
+  const [editLoading, setEditLoading] = React.useState(false);
+  const [editError, setEditError] = React.useState('');
+
+  const handleEditStudentClick = (student: any) => {
+    setEditingStudent(student);
+    setEditNama(student.nama);
+    setEditJk(student.jenis_kelamin);
+    setEditKelasId(student.kelas_id || '');
+    setEditError('');
+  };
+
+  const handleEditStudentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editNama.trim() || !editKelasId) {
+      setEditError('Nama dan Kelas wajib diisi');
+      return;
+    }
+    setEditLoading(true);
+    setEditError('');
+    try {
+      const resp = await fetch('/api/siswa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nis: editingStudent.nis,
+          nama: editNama.trim(),
+          jenis_kelamin: editJk,
+          kelas_id: Number(editKelasId)
+        })
+      });
+      if (resp.ok) {
+        const updatedSiswa = {
+          ...editingStudent,
+          nama: editNama.trim(),
+          jenis_kelamin: editJk,
+          kelas_id: Number(editKelasId)
+        };
+        // Perbarui catalog siswa di state induk (parent) secara langsung demi instant feedback
+        setCatalogSiswa(prev => prev.map(s => s.nis === editingStudent.nis ? updatedSiswa : s));
+        setEditingStudent(null);
+      } else {
+        const data = await resp.json();
+        setEditError(data.error || 'Gagal menyimpan perubahan');
+      }
+    } catch (err: any) {
+      setEditError(err.message);
+    } finally {
+      setEditLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -30,7 +89,7 @@ export default function AdminCatalogTab(props: AdminTabProps) {
               Maksud Bisnis: Memberikan petunjuk transisi visual kepada administrator bahwa
               fitur impor data masal telah dipindahkan ke menu tab khusus "Upload" demi kerapian
               tampilan direktori katalog.
-             ============================================================================ */}
+              ============================================================================ */}
           <div className="bg-slate-900/40 border border-slate-800 p-4 rounded-2xl flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-600/10 border border-blue-500/20 rounded-xl shrink-0">
@@ -49,14 +108,28 @@ export default function AdminCatalogTab(props: AdminTabProps) {
             
             {/* Class directory catalog list */}
             <div className="bg-[#161b22] p-6 rounded-3xl border border-slate-800 space-y-4 shadow-xl">
-              <div>
-                <h5 className="font-bold text-slate-200 text-sm">Direktori Kelas Aktif</h5>
-                <p className="text-3xs text-slate-500 font-bold uppercase tracking-wider font-mono">Penghapusan Kelas Berdaya Tinggi</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h5 className="font-bold text-slate-200 text-sm">Direktori Kelas Aktif</h5>
+                  <p className="text-3xs text-slate-500 font-bold uppercase tracking-wider font-mono">Penghapusan Kelas Berdaya Tinggi</p>
+                </div>
+                {/* Tombol Sembunyikan untuk menghemat ruang gulir di layar banyak kelas */}
+                <button 
+                  onClick={() => setIsClassesHidden(!isClassesHidden)}
+                  className="text-2xs font-bold text-blue-400 hover:text-blue-300 bg-blue-950/40 px-2.5 py-1.5 rounded-xl border border-blue-500/10 cursor-pointer transition flex items-center gap-1"
+                >
+                  {isClassesHidden ? 'Tampilkan' : 'Sembunyikan'}
+                </button>
               </div>
-              {classes.length === 0 ? (
+
+              {isClassesHidden ? (
+                <div className="py-12 text-center text-slate-500 text-xs italic bg-[#0f1219] rounded-2xl border border-slate-850/80 border-dashed">
+                  Direktori kelas aktif disembunyikan untuk mempercepat navigasi.
+                </div>
+              ) : classes.length === 0 ? (
                 <div className="py-8 text-center text-slate-500 text-xs">Belum ada daftar kelas di database.</div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1">
                   {classes.map(k => {
                     const isSelected = selectedClassFilter === String(k.id);
                     return (
@@ -124,7 +197,7 @@ export default function AdminCatalogTab(props: AdminTabProps) {
                             e.stopPropagation();
                             handleDeleteClass(k.id, k.nama_kelas);
                           }}
-                          className="p-2 hover:bg-rose-950/40 text-slate-550 hover:text-rose-450 rounded-xl transition cursor-pointer shrink-0 align-self-start"
+                          className="p-2 hover:bg-rose-950/40 text-slate-550 hover:text-rose-455 rounded-xl transition cursor-pointer shrink-0 align-self-start"
                           title="Hapus Kelas & Seluruh Isinya"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -183,13 +256,13 @@ export default function AdminCatalogTab(props: AdminTabProps) {
               ) : filteredSiswa.length === 0 ? (
                 <div className="py-8 text-center text-slate-550 text-xs">Siswa tidak ditemukan.</div>
               ) : (
-                <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1">
                   {filteredSiswa.map(s => {
                     const cl = classes.find(c => c.id === s.kelas_id);
                     return (
                       <div 
                         key={s.nis}
-                        className="p-3 bg-[#0f1219] border border-slate-800 rounded-xl flex items-center justify-between hover:border-slate-700 transition"
+                        className="p-3 bg-[#0f1219] border border-slate-800 rounded-xl flex items-center justify-between hover:border-slate-700 transition animate-in fade-in duration-100"
                       >
                         <div className="min-w-0 pr-3">
                           <div className="flex items-center gap-1.5 font-bold text-xs">
@@ -207,13 +280,24 @@ export default function AdminCatalogTab(props: AdminTabProps) {
                           </p>
                         </div>
 
-                        <button
-                          onClick={() => handleDeleteStudent(s.nis)}
-                          className="p-1.5 hover:bg-rose-950/40 text-slate-550 hover:text-rose-450 rounded-lg transition cursor-pointer"
-                          title="Hapus Siswa Permanen"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {/* Tombol Edit Siswa sesuai Request User */}
+                          <button
+                            onClick={() => handleEditStudentClick(s)}
+                            className="p-1.5 hover:bg-blue-950/40 text-slate-400 hover:text-blue-400 rounded-lg transition cursor-pointer"
+                            title="Edit Informasi Siswa"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            onClick={() => handleDeleteStudent(s.nis)}
+                            className="p-1.5 hover:bg-rose-950/40 text-slate-550 hover:text-rose-450 rounded-lg transition cursor-pointer"
+                            title="Hapus Siswa Permanen"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
@@ -222,6 +306,125 @@ export default function AdminCatalogTab(props: AdminTabProps) {
             </div>
 
           </div>
+
+          {/* Modal Edit Siswa Popup */}
+          {editingStudent && (
+            <div className="fixed inset-0 bg-[#090d16]/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+              <div 
+                className="bg-[#161b22] border border-slate-800 w-full max-w-md rounded-3xl shadow-2xl p-6 relative overflow-hidden animate-in zoom-in-95 duration-150"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="absolute top-0 right-0 w-24 h-24 rounded-full bg-blue-500/5 blur-xl pointer-events-none" />
+                
+                <div className="flex justify-between items-center pb-3 border-b border-slate-800 relative z-10">
+                  <span className="text-sm font-bold text-slate-100 flex items-center gap-1.5">
+                    <Edit className="w-4 h-4 text-blue-450" />
+                    <span>Edit Data Siswa</span>
+                  </span>
+                  <button
+                    onClick={() => setEditingStudent(null)}
+                    className="p-1.5 hover:bg-slate-800 rounded-full text-slate-400 hover:text-slate-200 cursor-pointer transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <form onSubmit={handleEditStudentSubmit} className="space-y-4 mt-4 relative z-10">
+                  <div className="space-y-1.5">
+                    <label className="text-2xs font-extrabold uppercase text-slate-500 tracking-wider">Nomor Induk Siswa (NIS)</label>
+                    <input
+                      type="text"
+                      className="w-full px-4 py-2.5 bg-[#0f1219] border border-slate-800 rounded-xl text-xs font-mono font-bold text-slate-400 cursor-not-allowed"
+                      value={editingStudent.nis}
+                      disabled
+                      title="NIS adalah Primary Key unik dan tidak dapat diubah"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-2xs font-extrabold uppercase text-slate-500 tracking-wider">Nama Lengkap Siswa</label>
+                    <input
+                      type="text"
+                      className="w-full px-4 py-2.5 bg-[#0f1219] border border-slate-800 rounded-xl text-xs focus:outline-none focus:border-blue-500 font-semibold text-slate-200"
+                      placeholder="Masukkan nama lengkap siswa..."
+                      value={editNama}
+                      onChange={(e) => setEditNama(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-2xs font-extrabold uppercase text-slate-500 tracking-wider">Jenis Kelamin</label>
+                    <div className="flex gap-4">
+                      <label className="flex items-center gap-2 text-xs font-semibold text-slate-300 cursor-pointer select-none">
+                        <input
+                          type="radio"
+                          name="editJk"
+                          value="L"
+                          checked={editJk === 'L'}
+                          onChange={() => setEditJk('L')}
+                          className="accent-blue-500"
+                        />
+                        <span>Laki-laki (L)</span>
+                      </label>
+                      <label className="flex items-center gap-2 text-xs font-semibold text-slate-300 cursor-pointer select-none">
+                        <input
+                          type="radio"
+                          name="editJk"
+                          value="P"
+                          checked={editJk === 'P'}
+                          onChange={() => setEditJk('P')}
+                          className="accent-pink-500"
+                        />
+                        <span>Perempuan (P)</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-2xs font-extrabold uppercase text-slate-500 tracking-wider">Penempatan Kelas Aktif</label>
+                    <select
+                      className="w-full px-4 py-2.5 bg-[#0f1219] border border-slate-800 rounded-xl text-xs focus:outline-none focus:border-blue-500 font-semibold text-slate-350"
+                      value={editKelasId}
+                      onChange={(e) => setEditKelasId(parseInt(e.target.value) || '')}
+                      required
+                    >
+                      <option value="">-- Pilih Kelas Penempatan --</option>
+                      {classes.map((cls) => (
+                        <option key={cls.id} value={cls.id}>
+                          {cls.nama_kelas} - {cls.sekolah}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {editError && (
+                    <div className="p-3 bg-rose-950/20 border border-rose-500/25 rounded-xl text-rose-400 text-xs flex gap-2">
+                      <ShieldAlert className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                      <span>{editError}</span>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2.5 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditingStudent(null)}
+                      className="flex-1 py-2.5 text-center border border-slate-800 rounded-xl text-xs font-bold text-slate-400 hover:bg-slate-850/40 transition cursor-pointer"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={editLoading}
+                      className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-bold shadow-md hover:bg-blue-500 transition cursor-pointer disabled:opacity-50"
+                    >
+                      {editLoading ? 'Menyimpan...' : 'Simpan Perubahan'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
         </div>
       
   );

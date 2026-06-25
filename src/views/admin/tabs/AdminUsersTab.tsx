@@ -27,25 +27,23 @@ export default function AdminUsersTab(props: AdminTabProps) {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 gap-6">
             
-            {/* User list */}
-            <div className="lg:col-span-7 bg-[#161b22] p-6 rounded-3xl border border-slate-800 space-y-4 shadow-xl">
+            {/* User list - Diperluas menjadi lebar penuh (Full-Width) untuk kelegaan visual */}
+            <div className="bg-[#161b22] p-6 rounded-3xl border border-slate-800 space-y-4 shadow-xl">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <h5 className="font-bold text-slate-200 text-sm">Akun Pengguna Terdaftar</h5>
                   <p className="text-3xs text-slate-500 font-bold uppercase tracking-wider font-mono">Daftar Akun Server</p>
                 </div>
                 
-                {!showAddForm && (
-                  <button
-                    onClick={() => { resetUserForm(); setShowAddForm(true); }}
-                    className="bg-blue-600/20 text-blue-400 border border-blue-500/20 hover:bg-blue-600/30 font-bold text-xs px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Tambah Guru/Admin</span>
-                  </button>
-                )}
+                <button
+                  onClick={() => { resetUserForm(); setShowAddForm(true); }}
+                  className="bg-blue-600/20 text-blue-400 border border-blue-500/20 hover:bg-blue-600/30 font-bold text-xs px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Tambah Guru/Admin</span>
+                </button>
               </div>
 
               {loadingUsers ? (
@@ -53,15 +51,15 @@ export default function AdminUsersTab(props: AdminTabProps) {
               ) : users.length === 0 ? (
                 <div className="py-12 text-center text-slate-500 text-xs">Belum ada akun guru terdaftar.</div>
               ) : (
-                <div className="space-y-2.5">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {users.map(u => (
                     <div 
                       key={u.id}
                       className="p-4 bg-[#0f1219] border border-slate-800 rounded-2xl flex items-center justify-between hover:border-slate-700 transition"
                     >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-200 text-sm">{u.nama}</span>
+                      <div className="space-y-1 min-w-0 pr-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-slate-200 text-sm truncate max-w-[120px] sm:max-w-none">{u.nama}</span>
                           <span className={`text-[9px] px-2 py-0.5 font-bold uppercase tracking-wider rounded font-mono border ${
                             u.role === 'admin' 
                               ? 'bg-emerald-950/40 text-emerald-400 border-emerald-500/10' 
@@ -72,20 +70,20 @@ export default function AdminUsersTab(props: AdminTabProps) {
                             {u.role === 'wali_murid' ? 'wali murid' : u.role}
                           </span>
                         </div>
-                        <p className="text-2xs text-slate-500 font-mono">
+                        <p className="text-2xs text-slate-500 font-mono truncate">
                           Username: <strong className="text-slate-400">{u.username}</strong>
                         </p>
                         {u.role === 'wali_murid' && u.nama_kelas && (
-                          <p className="text-2xs text-amber-500 font-semibold">
+                          <p className="text-2xs text-amber-500 font-semibold truncate">
                             Memantau Kelas: <span className="underline">{u.nama_kelas}</span>
                           </p>
                         )}
                       </div>
 
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1 shrink-0">
                         <button
                           onClick={() => handleEditClick(u)}
-                          className="p-2 hover:bg-slate-800/80 text-slate-400 hover:text-slate-250 rounded-xl transition cursor-pointer"
+                          className="p-2 hover:bg-slate-800/80 text-slate-400 hover:text-slate-200 rounded-xl transition cursor-pointer"
                           title="Edit Profil/Password"
                         >
                           <Edit className="w-4 h-4" />
@@ -106,24 +104,30 @@ export default function AdminUsersTab(props: AdminTabProps) {
               )}
             </div>
 
-            {/* User Form Box */}
-            <div className="lg:col-span-5">
-              {showAddForm ? (
-                <div className="bg-[#161b22] p-6 rounded-3xl border border-slate-800 space-y-4 shadow-xl animate-in zoom-in-95 duration-150">
-                  <div className="flex justify-between items-center pb-2 border-b border-slate-800">
-                    <span className="text-sm font-bold text-slate-200 flex items-center gap-1.5">
+            {/* User Form Modal - Ditampilkan di Tengah Layar dengan Backdrop Blur */}
+            {showAddForm && (
+              <div className="fixed inset-0 bg-[#090d16]/90 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
+                {/* Animasi membal keluar (zoom-in) menggunakan framer-motion/motion */}
+                <div 
+                  className="bg-[#161b22] border border-slate-800 w-full max-w-lg rounded-3xl shadow-2xl p-6 relative overflow-hidden animate-in zoom-in-95 duration-150"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-blue-500/5 blur-2xl pointer-events-none" />
+                  
+                  <div className="flex justify-between items-center pb-3 border-b border-slate-800 relative z-10">
+                    <span className="text-sm font-bold text-slate-100 flex items-center gap-1.5">
                       {editingUserId ? <Edit className="w-4 h-4 text-blue-400" /> : <Plus className="w-4 h-4 text-blue-400" />}
-                      <span>{editingUserId ? 'Edit Akun Pengguna' : 'Buat Akun Pengguna'}</span>
+                      <span>{editingUserId ? 'Edit Akun Pengguna' : 'Tambah Akun Penggurus Baru'}</span>
                     </span>
                     <button
                       onClick={resetUserForm}
-                      className="p-1 hover:bg-slate-800 rounded-full text-slate-400 hover:text-slate-200 cursor-pointer"
+                      className="p-1.5 hover:bg-slate-800 rounded-full text-slate-400 hover:text-slate-200 cursor-pointer transition-colors"
                     >
-                      <X className="w-4 h-4" />
+                      <X className="w-4.5 h-4.5" />
                     </button>
                   </div>
 
-                  <form onSubmit={handleUserSubmit} className="space-y-4">
+                  <form onSubmit={handleUserSubmit} className="space-y-4 mt-4 relative z-10">
                     <div className="space-y-1.5">
                       <label className="text-2xs font-extrabold uppercase text-slate-500 tracking-wider">Nama Lengkap</label>
                       <input
@@ -132,6 +136,7 @@ export default function AdminUsersTab(props: AdminTabProps) {
                         placeholder="Masukkan nama lengkap..."
                         value={formNama}
                         onChange={(e) => setFormNama(e.target.value)}
+                        required
                       />
                     </div>
 
@@ -144,6 +149,7 @@ export default function AdminUsersTab(props: AdminTabProps) {
                         value={formUsername}
                         onChange={(e) => setFormUsername(e.target.value)}
                         disabled={editingUserId !== null && formUsername === 'admin'} // lock core admin rename
+                        required
                       />
                     </div>
 
@@ -157,6 +163,7 @@ export default function AdminUsersTab(props: AdminTabProps) {
                         placeholder={editingUserId ? "Biarkan kosong..." : "Masukkan password baru..."}
                         value={formPassword}
                         onChange={(e) => setFormPassword(e.target.value)}
+                        required={!editingUserId}
                       />
                     </div>
 
@@ -175,12 +182,13 @@ export default function AdminUsersTab(props: AdminTabProps) {
                     </div>
 
                     {formRole === 'wali_murid' && (
-                      <div className="space-y-1.5 dynamic-student-link transition-all duration-300">
+                      <div className="space-y-1.5 dynamic-student-link transition-all duration-300 animate-in fade-in-50">
                         <label className="text-2xs font-extrabold uppercase text-slate-500 tracking-wider">Kelas yang Diawasi</label>
                         <select
                           className="w-full px-4 py-2.5 bg-[#0f1219] border border-slate-800 rounded-xl text-xs focus:outline-none focus:border-blue-500 font-semibold text-slate-350"
                           value={formKelasId}
                           onChange={(e) => setFormKelasId(parseInt(e.target.value) || '')}
+                          required
                         >
                           <option value="">-- Pilih Kelas --</option>
                           {classes.map((cls) => (
@@ -223,13 +231,8 @@ export default function AdminUsersTab(props: AdminTabProps) {
                     </div>
                   </form>
                 </div>
-              ) : (
-                <div className="bg-slate-900/60 p-8 rounded-3xl border border-slate-800 border-dashed text-center text-slate-500 text-xs space-y-2">
-                  <Settings className="w-8 h-8 text-slate-600 mx-auto animate-spin" style={{ animationDuration: '6s' }} />
-                  <p>Pilih atau edit salah satu akun user guru di samping, atau tambahkan akun pengajar baru ke server.</p>
-                </div>
-              )}
-            </div>
+              </div>
+            )}
       </div>
 
       {/* INFORMASI KONSOLIDASI MENU IMPOR DATA */}

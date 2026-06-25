@@ -1,3 +1,4 @@
+import React from 'react';
 import { Pengguna, Siswa, Jadwal } from '../../types';
 
 export interface AdminUser extends Pengguna {
@@ -107,6 +108,7 @@ export interface AdminTabProps {
   setPromotionSourceClass: (v: string) => void;
   setPromotionTargetClass: (v: string) => void;
   handleBulkAction: (action: string) => void;
+  setCatalogSiswa: React.Dispatch<React.SetStateAction<Siswa[]>>;
 
   // Jadwal
   setSchedViewMode: (v: any) => void;

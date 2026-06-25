@@ -738,14 +738,23 @@ select:active,
 }
 
 /* 4. Menghindari "Stuck Hover Effect" di mana tombol tetap menyala setelah ditap pada perangkat layar sentuh */
+/* 
+   ============================================================================
+   REVISI SISTEM OPTIMASI LAYAR SENTUH (ANTI COLOR SHIFT ON TOUCH)
+   Maksud Bisnis: Menghilangkan pemaksaan reset kursor universal (*:hover) menggunakan
+   nilai "initial !important" pada browser mobile. Aturan sebelumnya memicu perubahan warna 
+   dan ketidakkonsistenan visual (teks berubah hitam/latar transparan mendadak) saat elemen ditap 
+   oleh jempol pengguna.
+   Aliran Data: Membiarkan web-engine mobile merender properti warna aktif/sentuh dengan 
+   elegan dan konsisten sesuai tema Light/Dark yang dipilih pengguna tanpa interupsi reset paksa.
+   ============================================================================
+ */
 @media (hover: none) {
-  /* Menonaktifkan efek hover bawaan pada browser seluler */
-  *:hover {
-    background-color: initial !important;
-    color: initial !important;
-    border-color: initial !important;
-    box-shadow: none !important;
-  }
+  /* 
+     Menghapus penonaktifan hover universal yang merusak warna (destructive overrides).
+     Sebagai gantinya, transisi mikro active state (:active) di atas sudah cukup 
+     memberikan umpan balik visual yang konsisten dan responsif pada mobile.
+  */
 }
 
 /* 5. Optimasi scroll momentum yang halus dan responsif di sistem iOS/Safari */

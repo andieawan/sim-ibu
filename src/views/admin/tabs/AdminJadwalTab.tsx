@@ -25,6 +25,38 @@ export default function AdminJadwalTab(props: AdminTabProps) {
 
   // Fitur Impor Jadwal dan Impor Wali Kelas via Excel telah dipindahkan dan dipusatkan ke tab "Upload"
 
+  // State lokal untuk filter kelas di direktori jadwal
+  const [schedClassFilter, setSchedClassFilter] = React.useState<string>('');
+
+  // Menyiapkan daftar jadwal terfilter untuk render
+  const getFilteredSchedules = () => {
+    let filtered = schedules;
+    
+    // 1. Filter berdasarkan kelas jika ada
+    if (schedClassFilter) {
+      filtered = filtered.filter(s => s.kelas_id === Number(schedClassFilter));
+    }
+    
+    // 2. Filter berdasarkan pencarian teks (matpel, guru, hari)
+    if (schedSearchQuery) {
+      const qs = schedSearchQuery.toLowerCase();
+      filtered = filtered.filter(s => {
+        const cls = classes.find(c => c.id === s.kelas_id);
+        const guru = users.find(u => u.id === s.guru_id);
+        return (
+          s.mata_pelajaran.toLowerCase().includes(qs) ||
+          (guru && guru.nama.toLowerCase().includes(qs)) ||
+          s.hari.toLowerCase().includes(qs) ||
+          (cls && cls.nama_kelas.toLowerCase().includes(qs))
+        );
+      });
+    }
+    
+    return filtered;
+  };
+
+  const currentFilteredSchedules = getFilteredSchedules();
+
   return (
     <div className="space-y-6">
       {/* SEKSI FORM INPUT MANUAL JADWAL */}
@@ -188,6 +220,23 @@ export default function AdminJadwalTab(props: AdminTabProps) {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            {/* Filter Kelas */}
+            <div className="relative w-full sm:w-48">
+              <select
+                value={schedClassFilter}
+                onChange={(e) => setSchedClassFilter(e.target.value)}
+                className="w-full px-3 py-1.5 bg-[#0f1219] border border-slate-800 rounded-xl text-slate-300 text-xs focus:outline-none focus:border-blue-500 font-medium transition cursor-pointer appearance-none"
+              >
+                <option value="">Semua Kelas</option>
+                {classes.map((c) => (
+                  <option key={c.id} value={c.id}>{c.nama_kelas}</option>
+                ))}
+              </select>
+              <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-500">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+              </div>
+            </div>
+
             {/* Search Bar */}
             <div className="relative w-full sm:w-60">
               <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -247,20 +296,11 @@ export default function AdminJadwalTab(props: AdminTabProps) {
             Belum ada jadwal mengajar yang dikonfigurasikan di sekolah.
           </div>
         ) : schedViewMode === 'grid' ? (
-          /* Grouped by Class Grid Mode */
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {classes.map((k) => {
-              const filtered = schedules.filter(s => {
-                const matchClass = s.kelas_id === k.id;
-                if (!matchClass) return false;
-                if (!schedSearchQuery) return true;
-                const q = schedSearchQuery.toLowerCase();
-                return (
-                  s.mata_pelajaran.toLowerCase().includes(q) ||
-                  s.hari.toLowerCase().includes(q) ||
-                  (s.nama_guru && s.nama_guru.toLowerCase().includes(q))
-                );
-              });
+            {classes
+              .filter(k => !schedClassFilter || k.id === Number(schedClassFilter))
+              .map((k) => {
+              const filtered = currentFilteredSchedules.filter(s => s.kelas_id === k.id);
 
               return (
                 <div key={k.id} className="bg-[#161b22] p-5 rounded-3xl border border-slate-800 space-y-3 shadow-xl hover:border-slate-700 transition">
@@ -349,18 +389,7 @@ export default function AdminJadwalTab(props: AdminTabProps) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-850">
-                {schedules
-                  .filter(s => {
-                    if (!schedSearchQuery) return true;
-                    const q = schedSearchQuery.toLowerCase();
-                    return (
-                      s.mata_pelajaran.toLowerCase().includes(q) ||
-                      s.hari.toLowerCase().includes(q) ||
-                      (s.nama_kelas && s.nama_kelas.toLowerCase().includes(q)) ||
-                      (s.nama_guru && s.nama_guru.toLowerCase().includes(q))
-                    );
-                  })
-                  .map((s) => (
+                {currentFilteredSchedules.map((s) => (
                     <tr key={s.id} className="text-slate-350 hover:bg-[#0f1219] transition">
                       <td className="py-3 pl-2 font-bold text-slate-250">
                         <span className="px-2 py-1 bg-blue-950/40 text-blue-400 border border-blue-500/10 rounded-lg text-3xs font-mono font-bold leading-none">

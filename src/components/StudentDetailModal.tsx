@@ -197,10 +197,10 @@ export default function StudentDetailModal({ isOpen, onClose, nis, theme }: Stud
                 </div>
 
                 {/* Tabs Kategori Informasi */}
-                <div className="flex gap-1.5 border-b mt-5 pb-px border-slate-100 dark:border-slate-800">
+                <div className="flex gap-1.5 border-b mt-5 pb-px border-slate-100 dark:border-slate-800 overflow-x-auto custom-scrollbar">
                   <button
                     onClick={() => setActiveTab('umum')}
-                    className={`pb-2.5 px-3 text-2xs font-extrabold border-b-2 transition-all relative ${
+                    className={`pb-2.5 px-3 text-2xs font-extrabold border-b-2 transition-all relative whitespace-nowrap ${
                       activeTab === 'umum'
                         ? isLight ? 'border-blue-600 text-blue-600' : 'border-blue-500 text-blue-400'
                         : 'border-transparent text-slate-500 hover:text-slate-300'
@@ -213,7 +213,7 @@ export default function StudentDetailModal({ isOpen, onClose, nis, theme }: Stud
                   </button>
                   <button
                     onClick={() => setActiveTab('absensi')}
-                    className={`pb-2.5 px-3 text-2xs font-extrabold border-b-2 transition-all relative ${
+                    className={`pb-2.5 px-3 text-2xs font-extrabold border-b-2 transition-all relative whitespace-nowrap ${
                       activeTab === 'absensi'
                         ? isLight ? 'border-blue-600 text-blue-600' : 'border-blue-500 text-blue-400'
                         : 'border-transparent text-slate-500 hover:text-slate-300'
@@ -226,7 +226,7 @@ export default function StudentDetailModal({ isOpen, onClose, nis, theme }: Stud
                   </button>
                   <button
                     onClick={() => setActiveTab('nilai')}
-                    className={`pb-2.5 px-3 text-2xs font-extrabold border-b-2 transition-all relative ${
+                    className={`pb-2.5 px-3 text-2xs font-extrabold border-b-2 transition-all relative whitespace-nowrap ${
                       activeTab === 'nilai'
                         ? isLight ? 'border-blue-600 text-blue-600' : 'border-blue-500 text-blue-400'
                         : 'border-transparent text-slate-500 hover:text-slate-300'
@@ -286,13 +286,39 @@ export default function StudentDetailModal({ isOpen, onClose, nis, theme }: Stud
                           </div>
                           <div className="flex justify-between py-1">
                             <span className="text-slate-500">Status Absensi</span>
-                            <span className={`px-1.5 py-0.2 rounded font-bold font-mono text-[10px] ${
-                              absensiStats.alfa > 2 
-                                ? 'bg-rose-500/10 text-rose-500' 
-                                : 'bg-emerald-500/10 text-emerald-500'
-                            }`}>
-                              {absensiStats.alfa > 2 ? 'Rawan (Alfa > 2)' : 'Sehat'}
-                            </span>
+                            {/* === LOGIKA STATUS ABSENSI ADAPTIF === */}
+                            {/* Maksud Bisnis: Membantu guru mendeteksi siswa yang jarang masuk secara dini. */}
+                            {/*                 Jika rate kehadiran < 90% atau Alfa > 2, status di-set 'Sangat Rawan'. */}
+                            {/*                 Jika rate kehadiran < 95% atau ada Alfa > 0, status di-set 'Jarang Masuk'. */}
+                            {/*                 Jika di luar itu, status dinilai 'Sangat Baik (Sesuai)'. */}
+                            {(() => {
+                              const totalAbsen = absensiStats.alfa + absensiStats.sakit + absensiStats.izin;
+                              if (absensiStats.total === 0) {
+                                return (
+                                  <span className="px-1.5 py-0.5 rounded font-bold font-mono text-[10px] bg-slate-500/10 text-slate-500 border border-slate-500/20">
+                                    Belum Ada Data
+                                  </span>
+                                );
+                              } else if (absensiStats.alfa > 2 || (absensiStats.total > 0 && absensiStats.rate < 85)) {
+                                return (
+                                  <span className="px-1.5 py-0.5 rounded font-bold font-mono text-[10px] bg-rose-500/10 text-rose-500 border border-rose-500/20">
+                                    Sangat Rawan (Alfa &gt; 2)
+                                  </span>
+                                );
+                              } else if (absensiStats.alfa > 0 || totalAbsen >= 2 || (absensiStats.total > 0 && absensiStats.rate < 95)) {
+                                return (
+                                  <span className="px-1.5 py-0.5 rounded font-bold font-mono text-[10px] bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                                    Jarang Masuk
+                                  </span>
+                                );
+                              } else {
+                                return (
+                                  <span className="px-1.5 py-0.5 rounded font-bold font-mono text-[10px] bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                                    Sangat Baik (Hadir)
+                                  </span>
+                                );
+                              }
+                            })()}
                           </div>
                         </div>
                       </div>
@@ -319,7 +345,7 @@ export default function StudentDetailModal({ isOpen, onClose, nis, theme }: Stud
                       className="space-y-4"
                     >
                       {/* Statistik Kartu Grid */}
-                      <div className="grid grid-cols-4 gap-3">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         <div className={`p-2.5 rounded-xl border text-center ${
                           isLight ? 'bg-emerald-50 border-emerald-100' : 'bg-emerald-950/10 border-emerald-500/15'
                         }`}>

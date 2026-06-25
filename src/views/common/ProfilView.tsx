@@ -156,7 +156,7 @@ export default function ProfilView({
     setSearchQuery('');
   }, [activeModal, selectedClassIdForModal, currentUser.id, currentUser.role]);
 
-  const targetClass = stats?.classes_breakdown?.find(c => c.id === selectedClassIdForModal);
+  const targetClass = stats?.classes_breakdown?.find(c => Number(c.id) === Number(selectedClassIdForModal));
   const classSuffix = targetClass ? ` - ${targetClass.nama_kelas}` : '';
 
   return (
@@ -416,7 +416,7 @@ export default function ProfilView({
         modalData={modalData} modalLoading={modalLoading}
         searchQuery={searchQuery} setSearchQuery={setSearchQuery} 
         onNavigateToTab={onNavigateToTab} 
-        stats={stats} onClassChange={(c) => { setActiveModal(null); onNavigateToTab('kelas', c.id); }} 
+        stats={stats} onClassChange={(classId) => { setActiveModal(null); onNavigateToTab('kelas', classId); }} 
         classSuffix={classSuffix} targetClass={targetClass}
       />
     </div>

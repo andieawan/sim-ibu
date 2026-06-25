@@ -51,7 +51,7 @@ export default function HomeKelasTab(props: any) {
             ) : (
               <div className="grid grid-cols-1 gap-4">
                 {displayedClasses.map((k) => {
-                  const isSelected = selectedClassForView === k.id;
+                  const isSelected = Number(selectedClassForView) === Number(k.id);
                   return (
                     <div
                       key={k.id}

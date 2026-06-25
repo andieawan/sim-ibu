@@ -360,9 +360,21 @@ export default function HomeView({
   };
 
 
+  const handleInterceptedNavigateToTab = (tab: string, classId?: number) => {
+    if (tab === 'kelas') {
+      setActiveSubTab('kelas');
+      if (classId) {
+        setSelectedClassForView(classId);
+        handleViewSiswa(classId);
+      }
+      return;
+    }
+    onNavigateToTab(tab, classId);
+  };
+
   // Prop object for tabs
   const tabProps = {
-    currentUser, classes, schoolIdentity, theme, isWaliKelas, onNavigateToTab, onOpenAddKelasModal, onOpenAddSiswaModal,
+    currentUser, classes, schoolIdentity, theme, isWaliKelas, onNavigateToTab: handleInterceptedNavigateToTab, onOpenAddKelasModal, onOpenAddSiswaModal,
     loadingClasses, displayedClasses, selectedClassForView, setSelectedClassForView, setSiswaListForView, handleViewSiswa, handleDeleteKelas,
     classStats, loadingSiswa, siswaListForView, handleDeactivateSiswa, handleReactivateSiswa,
     schedules, selectedDayFilter, setSelectedDayFilter, loadingSchedules,

@@ -143,51 +143,60 @@ export default function WaliKelasView({ currentUser, classes, onNavigateToTab }:
         )}
       </div>
 
-      {/* Grid of Key Performance Indicators */}
+      {/* Grid of Key Performance Indicators - Dapat diklik/disentuh untuk beralih tab */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         
         {/* Total Students Card */}
-        <div className="bg-[#161b22] p-5 border border-slate-800 rounded-2xl flex items-center justify-between shadow-lg">
+        <div 
+          onClick={() => setActiveSubTab('siswa')}
+          className="bg-[#161b22] p-5 border border-slate-800 rounded-2xl flex items-center justify-between shadow-lg cursor-pointer hover:border-blue-500/30 hover:bg-[#1a212b]/80 active:scale-98 transition-all duration-300 group"
+        >
           <div className="space-y-1">
-            <span className="text-3xs font-bold text-slate-500 uppercase tracking-wider font-mono">Peserta Didik Bimbingan</span>
+            <span className="text-3xs font-bold text-slate-500 uppercase tracking-wider font-mono block group-hover:text-blue-400 transition-colors">Peserta Didik Bimbingan</span>
             <div className="flex items-baseline space-x-2">
               <span className="text-3xl font-black text-slate-100 tracking-tight">{totalStudents}</span>
               <span className="text-2xs font-semibold text-slate-400">Siswa Aktif</span>
             </div>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
+          <div className="w-12 h-12 rounded-xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors duration-300">
             <Users className="w-5.5 h-5.5" />
           </div>
         </div>
-
+ 
         {/* Attendance Rate Code Card */}
-        <div className="bg-[#161b22] p-5 border border-slate-800 rounded-2xl flex items-center justify-between shadow-lg">
+        <div 
+          onClick={() => setActiveSubTab('diagnosa')}
+          className="bg-[#161b22] p-5 border border-slate-800 rounded-2xl flex items-center justify-between shadow-lg cursor-pointer hover:border-emerald-500/30 hover:bg-[#1a212b]/80 active:scale-98 transition-all duration-300 group"
+        >
           <div className="space-y-1">
-            <span className="text-3xs font-bold text-slate-500 uppercase tracking-wider font-mono">Rerata Presensi Kelas</span>
+            <span className="text-3xs font-bold text-slate-500 uppercase tracking-wider font-mono block group-hover:text-emerald-400 transition-colors">Rerata Presensi Kelas</span>
             <div className="flex items-baseline space-x-1.5">
               <span className="text-3xl font-black text-emerald-400 tracking-tight">{averageClassAttendance}%</span>
               <span className="text-3xs font-bold text-emerald-500/80 uppercase">Target &gt;90%</span>
             </div>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-emerald-600/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+          <div className="w-12 h-12 rounded-xl bg-emerald-600/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition-colors duration-300">
             <TrendingUp className="w-5.5 h-5.5" />
           </div>
         </div>
-
+ 
         {/* Average Grade Card */}
-        <div className="bg-[#161b22] p-5 border border-slate-800 rounded-2xl flex items-center justify-between shadow-lg">
+        <div 
+          onClick={() => setActiveSubTab('diagnosa')}
+          className="bg-[#161b22] p-5 border border-slate-800 rounded-2xl flex items-center justify-between shadow-lg cursor-pointer hover:border-indigo-500/30 hover:bg-[#1a212b]/80 active:scale-98 transition-all duration-300 group"
+        >
           <div className="space-y-1">
-            <span className="text-3xs font-bold text-slate-500 uppercase tracking-wider font-mono">IP Kelas / Rerata Nilai</span>
+            <span className="text-3xs font-bold text-slate-500 uppercase tracking-wider font-mono block group-hover:text-indigo-400 transition-colors">IP Kelas / Rerata Nilai</span>
             <div className="flex items-baseline space-x-1.5">
               <span className="text-3xl font-black text-indigo-400 tracking-tight">{averageClassGrade}</span>
               <span className="text-3xs font-bold text-indigo-500/80 uppercase">KKM 75</span>
             </div>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
+          <div className="w-12 h-12 rounded-xl bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-300">
             <Award className="w-5.5 h-5.5" />
           </div>
         </div>
-
+ 
       </div>
 
       {/* Sub tabs navigations menu */}
