@@ -58,8 +58,6 @@ export default function StudentDetailModal({ isOpen, onClose, nis, theme }: Stud
   };
   // === AKHIR DARI LOGIKA AMBIL PROFIL SISWA ===
 
-  if (!isOpen) return null;
-
   const isLight = theme === 'light';
 
   // Warna-warni kelas penyesuaian berdasarkan tema aktif
@@ -95,44 +93,54 @@ export default function StudentDetailModal({ isOpen, onClose, nis, theme }: Stud
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 overflow-y-auto">
-        {/* Backdrop Semitransparan */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-          className={`fixed inset-0 ${
-            isLight ? 'bg-slate-900/60' : 'bg-[#090d16]/92'
-          } backdrop-blur-md`}
-        />
-
-        {/* Konten Modal Tengah */}
-        <div className="flex min-h-screen items-center justify-center p-4">
+      {/* === OPTIMASI DIALOG LAYAR SENTUH & ANIMASI KELUAR (EXIT ANIMATION) === */}
+      {/* Maksud Bisnis: Merender modal di bawah AnimatePresence secara kondisional */}
+      {/*                 agar transisi exit dapat dipicu dengan sempurna ketika modal ditutup. */}
+      {isOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          {/* Backdrop Semitransparan */}
           <motion.div
-            initial={{ scale: 0.95, opacity: 0, y: 15 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.95, opacity: 0, y: 15 }}
-            className={`relative w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl transition-all duration-300 border ${
-              isLight 
-                ? 'bg-white border-slate-200 text-slate-800 shadow-slate-200/50' 
-                : 'bg-[#111622] border-slate-800 text-slate-200 shadow-[#020617]/50'
-            }`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className={`fixed inset-0 ${
+              isLight ? 'bg-slate-900/60' : 'bg-[#090d16]/92'
+            } backdrop-blur-md`}
+          />
+
+          {/* Konten Modal Tengah */}
+          {/* Maksud Bisnis: Mendukung penutupan modal saat pengguna menyentuh/mengklik area luar sekeliling modal */}
+          <div 
+            onClick={onClose}
+            className="flex min-h-screen items-center justify-center p-4 relative z-10"
           >
-            {/* Header Profil Hiasan */}
-            <div className={`h-2 absolute top-0 left-0 right-0 ${colors.bg}`} />
-            
-            {/* Tombol Tutup */}
-            <button
-              onClick={onClose}
-              className={`absolute top-4 right-4 p-1.5 rounded-xl transition-all z-10 ${
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 15 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 15 }}
+              onClick={(e) => e.stopPropagation()} /* Mencegah modal tertutup tidak sengaja ketika mengklik di dalam kotak modal */
+              className={`relative w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl transition-all duration-300 border ${
                 isLight 
-                  ? 'hover:bg-slate-100 text-slate-400 hover:text-slate-700' 
-                  : 'hover:bg-slate-800 text-slate-500 hover:text-slate-200'
+                  ? 'bg-white border-slate-200 text-slate-800 shadow-slate-200/50' 
+                  : 'bg-[#111622] border-slate-800 text-slate-200 shadow-[#020617]/50'
               }`}
             >
-              <X className="w-5 h-5" />
-            </button>
+              {/* Header Profil Hiasan */}
+              <div className={`h-2 absolute top-0 left-0 right-0 ${colors.bg}`} />
+              
+              {/* Tombol Tutup - Dilengkapi area sentuh minimum 44px ramah layar sentuh (p-3 + 20px icon) */}
+              <button
+                onClick={onClose}
+                aria-label="Tutup Rincian Siswa"
+                className={`absolute top-3 right-3 p-3 rounded-xl transition-all z-20 flex items-center justify-center hover:scale-105 active:scale-95 ${
+                  isLight 
+                    ? 'hover:bg-slate-100 text-slate-400 hover:text-slate-700' 
+                    : 'hover:bg-slate-800 text-slate-500 hover:text-slate-200'
+                }`}
+              >
+                <X className="w-5 h-5" />
+              </button>
 
             {loading ? (
               <div className="py-24 flex flex-col items-center justify-center gap-3">
@@ -436,6 +444,7 @@ export default function StudentDetailModal({ isOpen, onClose, nis, theme }: Stud
           </motion.div>
         </div>
       </div>
+      )}
     </AnimatePresence>
   );
 }
