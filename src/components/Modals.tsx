@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Layers, UserPlus, Info } from 'lucide-react';
 import { Kelas } from '../types';
 
@@ -19,6 +19,18 @@ export default function Modals({
   onSuccessAddKelas,
   onSuccessAddSiswa,
 }: ModalsProps) {
+  // Maksud Bisnis: Mengontrol scroll-lock pada body document untuk mencegah double-scrolling ketika modal aktif
+  useEffect(() => {
+    if (showAddKelas || showAddSiswa) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showAddKelas, showAddSiswa]);
+
   // Add Kelas State
   const [kelasName, setKelasName] = useState<string>('');
   const [sekolahName, setSekolahName] = useState<string>('SMKS Islam Bustanul Ulum');
@@ -108,10 +120,10 @@ export default function Modals({
   if (!showAddKelas && !showAddSiswa) return null;
 
   return (
-    <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-[100] animate-in fade-in duration-150">
+    <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-[100] animate-in fade-in duration-150 overflow-y-auto">
       
       {showAddKelas && (
-        <div className="bg-[#161b22] rounded-3xl w-full max-w-sm overflow-hidden border border-slate-800 shadow-2xl animate-in zoom-in-95 duration-200">
+        <div className="bg-[#161b22] rounded-3xl w-full max-w-sm overflow-y-auto max-h-[90vh] md:max-h-[85vh] border border-slate-800 shadow-2xl animate-in zoom-in-95 duration-200 scrollbar-thin">
           <div className="bg-[#111622] px-5 py-4 text-slate-100 flex justify-between items-center border-b border-slate-800">
             <h4 className="font-extrabold flex items-center space-x-2 text-xs uppercase tracking-wider text-slate-200 font-mono">
               <Layers className="w-4 h-4 text-blue-450" />
@@ -170,7 +182,7 @@ export default function Modals({
       )}
 
       {showAddSiswa && (
-        <div className="bg-[#161b22] rounded-3xl w-full max-w-sm overflow-hidden border border-slate-800 shadow-2xl animate-in zoom-in-95 duration-200">
+        <div className="bg-[#161b22] rounded-3xl w-full max-w-sm overflow-y-auto max-h-[90vh] md:max-h-[85vh] border border-slate-800 shadow-2xl animate-in zoom-in-95 duration-200 scrollbar-thin">
           <div className="bg-[#111622] px-5 py-4 text-slate-100 flex justify-between items-center border-b border-slate-800">
             <h4 className="font-extrabold flex items-center space-x-2 text-xs uppercase tracking-wider text-slate-200 font-mono">
               <UserPlus className="w-4 h-4 text-blue-450" />

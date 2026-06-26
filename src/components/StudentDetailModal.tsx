@@ -281,8 +281,13 @@ export default function StudentDetailModal({ isOpen, onClose, nis, theme }: Stud
                             <span className="font-semibold text-right">{profileData.siswa.sekolah || 'SMK Ibu'}</span>
                           </div>
                           <div className="flex justify-between py-1 border-b border-dashed border-slate-100 dark:border-slate-800/50">
-                            <span className="text-slate-500">Rombel Kelas</span>
+                            <span className="text-slate-500 font-medium">Rombel Kelas</span>
                             <span className="font-bold text-blue-500 text-right">{profileData.siswa.nama_kelas || 'Umum'}</span>
+                          </div>
+                          {/* Aliran Data: Menampilkan informasi Jurusan kompetensi keahlian yang diampu siswa */}
+                          <div className="flex justify-between py-1 border-b border-dashed border-slate-100 dark:border-slate-800/50">
+                            <span className="text-slate-500 font-medium">Jurusan / Kompetensi</span>
+                            <span className="font-semibold text-slate-200 text-right">{profileData.siswa.jurusan || 'Desain Komunikasi Visual (DKV)'}</span>
                           </div>
                           <div className="flex justify-between py-1">
                             <span className="text-slate-500">Status Absensi</span>

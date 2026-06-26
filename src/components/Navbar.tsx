@@ -6,11 +6,14 @@ interface NavbarProps {
   isAdmin?: boolean;
   isWaliKelas?: boolean;
   isWaliMurid?: boolean;
+  isBk?: boolean;
+  isKajur?: boolean;
+  isKepsek?: boolean;
 }
 
-export default function Navbar({ currentTab, setTab, isAdmin, isWaliKelas, isWaliMurid }: NavbarProps) {
+export default function Navbar({ currentTab, setTab, isAdmin, isWaliKelas, isWaliMurid, isBk, isKajur, isKepsek }: NavbarProps) {
   let navItems = [
-    { id: 'beranda', label: 'Monitor Anak', icon: Home },
+    { id: 'beranda', label: isWaliMurid ? 'Monitor Anak' : 'Beranda', icon: Home },
   ];
 
   if (!isWaliMurid) {
@@ -22,6 +25,15 @@ export default function Navbar({ currentTab, setTab, isAdmin, isWaliKelas, isWal
 
     if (isAdmin) {
       navItems.push({ id: 'admin', label: 'Manajemen', icon: Settings });
+    }
+    if (isBk) {
+      navItems.push({ id: 'bk', label: 'Bimbingan', icon: UserCheck });
+    }
+    if (isKajur) {
+      navItems.push({ id: 'kajur', label: 'Kejuruan', icon: BarChart3 });
+    }
+    if (isKepsek) {
+      navItems.push({ id: 'kepsek', label: 'Laporan', icon: BarChart3 });
     }
   }
 

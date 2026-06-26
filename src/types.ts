@@ -15,6 +15,8 @@ export interface Kelas {
   walikelas_id?: number | null;
   nama_walikelas?: string;
   username_walikelas?: string;
+  jurusan?: string;
+  is_mengajar?: number;
 }
 
 export interface Siswa {
@@ -58,12 +60,14 @@ export interface Pengguna {
   id: number;
   username: string;
   nama: string;
-  role: 'guru' | 'admin' | 'wali_murid';
+  role: 'guru' | 'admin' | 'wali_murid' | 'bk' | 'kajur' | 'kepsek';
   token?: string;
   nip?: string;
   jabatan?: string;
   siswa_nis?: string | null;
   kelas_id?: number | null;
+  jurusan?: string;
+  is_cuti?: number;
 }
 
 export interface Jadwal {
@@ -77,6 +81,30 @@ export interface Jadwal {
   nama_kelas?: string;
   nama_guru?: string;
   username_guru?: string;
+}
+
+export interface CatatanWaliKelas {
+  id: number;
+  siswa_nis: string;
+  kelas_id: number;
+  guru_id: number;
+  kategori: string;
+  catatan: string;
+  tanggal: string;
+  nama_siswa?: string;
+  nama_guru?: string;
+}
+
+export interface SuratBk {
+  id: number;
+  siswa_nis: string;
+  guru_id: number;
+  jenis_surat: string;
+  tanggal: string;
+  keterangan: string;
+  status: string;
+  nama_siswa?: string;
+  nama_guru?: string;
 }
 
 

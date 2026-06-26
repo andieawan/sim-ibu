@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { 
   Users, Key, Plus, Trash2, Shield, Settings, Database, 
   RotateCcw, CheckCircle2, ShieldAlert, Edit, Save, X, 
@@ -9,7 +9,7 @@ import { AdminTabProps } from '../types';
 
 export default function AdminCatalogTab(props: AdminTabProps) {
   const {
-    classes, onRefreshClasses, currentUser,
+    classes, onRefreshClasses, onRefreshUsers, currentUser,
     users, loadingUsers, userSuccessMsg, userErrorMsg, editingUserId,
     formUsername, formPassword, formNama, formRole, formKelasId, showAddForm, stats, loadingStats,
     catalogSiswa, loadingCatalog, searchQuery, selectedClassFilter, selectedClassForImport, csvFile, csvPreview, parsedSiswaList, importStatus, promoting, promotionTargetClass, promotionSourceClass, promotionMode,
@@ -32,6 +32,18 @@ export default function AdminCatalogTab(props: AdminTabProps) {
   const [editKelasId, setEditKelasId] = React.useState<number | ''>('');
   const [editLoading, setEditLoading] = React.useState(false);
   const [editError, setEditError] = React.useState('');
+
+  // Maksud Bisnis: Mengontrol scroll-lock pada body document untuk mencegah double-scrolling ketika modal edit siswa aktif
+  useEffect(() => {
+    if (editingStudent) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [editingStudent]);
 
   const handleEditStudentClick = (student: any) => {
     setEditingStudent(student);
@@ -160,35 +172,57 @@ export default function AdminCatalogTab(props: AdminTabProps) {
                           <span className="font-mono text-[9px] text-slate-500 font-bold uppercase tracking-wider block">{k.sekolah}</span>
                           
                           {/* Wali Kelas Selector */}
-                          <div className="mt-2 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Wali:</span>
-                            <select
-                              value={k.walikelas_id || ''}
-                              onChange={async (e) => {
-                                const val = e.target.value;
-                                const walikelas_id = val ? parseInt(val) : null;
-                                try {
-                                  const response = await fetch(`/api/kelas/${k.id}`, {
-                                    method: 'PUT',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ walikelas_id })
-                                  });
-                                  if (response.ok) {
-                                    await onRefreshClasses();
-                                  } else {
-                                    alert('Gagal mengupdate Wali Kelas');
+                          <div className="mt-2 flex flex-col gap-1" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Wali:</span>
+                              <select
+                                value={k.walikelas_id || ''}
+                                onChange={async (e) => {
+                                  const val = e.target.value;
+                                  const walikelas_id = val ? parseInt(val) : null;
+                                  try {
+                                    const response = await fetch(`/api/kelas/${k.id}`, {
+                                      method: 'PUT',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ walikelas_id })
+                                    });
+                                    if (response.ok) {
+                                      await onRefreshClasses();
+                                      if (onRefreshUsers) onRefreshUsers();
+                                    } else {
+                                      alert('Gagal mengupdate Wali Kelas');
+                                    }
+                                  } catch (err: any) {
+                                    alert('Error: ' + err.message);
                                   }
-                                } catch (err: any) {
-                                  alert('Error: ' + err.message);
-                                }
-                              }}
-                              className="bg-[#161b22] border border-slate-800 px-1.5 py-0.5 rounded text-[10px] text-slate-350 focus:outline-none focus:border-blue-500 font-semibold cursor-pointer max-w-[140px] truncate"
-                            >
-                              <option value="">-- Belum Ditentukan --</option>
-                              {users.map(u => (
-                                <option key={u.id} value={u.id}>{u.nama}</option>
-                              ))}
-                            </select>
+                                }}
+                                className={`bg-[#161b22] border px-1.5 py-0.5 rounded text-[10px] focus:outline-none focus:border-blue-500 font-semibold cursor-pointer max-w-[140px] truncate ${
+                                  users.find(u => u.id === k.walikelas_id)?.is_cuti === 1
+                                    ? 'border-rose-500/50 text-rose-400 bg-rose-950/20'
+                                    : 'border-slate-800 text-slate-350'
+                                }`}
+                              >
+                                <option value="">-- Belum Ditentukan --</option>
+                                {users.filter(u => u.role === 'guru').map(u => (
+                                  <option key={u.id} value={u.id} className={u.is_cuti === 1 ? 'text-rose-400 bg-rose-950/30 font-semibold' : ''}>
+                                    {u.nama} {u.is_cuti === 1 ? ' (🔴 Cuti)' : ''}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            {/* Peringatan jika Wali Kelas Sedang Cuti */}
+                            {(() => {
+                              const currentWali = users.find(u => u.id === k.walikelas_id);
+                              if (currentWali && currentWali.is_cuti === 1) {
+                                return (
+                                  <div className="mt-1 p-1.5 bg-rose-950/35 border border-rose-500/25 rounded-xl text-rose-400 text-[9px] leading-snug animate-pulse max-w-[170px]">
+                                    ⚠️ <strong>Wali Kelas ({currentWali.nama})</strong> sedang cuti! Mohon ganti dengan wali pengganti sementara.
+                                  </div>
+                                );
+                              }
+                              return null;
+                            })()}
                           </div>
                         </div>
 
@@ -266,17 +300,24 @@ export default function AdminCatalogTab(props: AdminTabProps) {
                       >
                         <div className="min-w-0 pr-3">
                           <div className="flex items-center gap-1.5 font-bold text-xs">
-                            <span className="text-slate-250 truncate block max-w-[120px]">{s.nama}</span>
-                            <span className={`text-[8px] font-bold px-1.5 py-0.2 rounded shrink-0 ${
+                            <span className="text-slate-200 truncate block max-w-[150px]">{s.nama}</span>
+                            <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
                               s.jenis_kelamin === 'L' 
                                 ? 'bg-blue-950/40 text-blue-400 border border-blue-500/10' 
                                 : 'bg-pink-950/40 text-pink-400 border border-pink-500/10'
-                            }`}>
-                              {s.jenis_kelamin}
+                            }`} title={s.jenis_kelamin === 'L' ? 'Laki-laki' : 'Perempuan'}>
+                              {s.jenis_kelamin === 'L' ? 'L (Laki-laki)' : 'P (Perempuan)'}
                             </span>
                           </div>
-                          <p className="text-[10px] font-mono font-medium text-slate-500">
-                            NIS: {s.nis} | <span className="text-indigo-400 font-sans">{cl ? cl.nama_kelas : 'Tanpa Kelas'}</span>
+                          {/* Aliran Data: Menyajikan informasi NIS, Kelas Penempatan, dan Kompetensi Jurusan terpadu */}
+                          <p className="text-[10px] font-mono font-medium text-slate-500 mt-1 flex flex-wrap items-center gap-1.5">
+                            <span>NIS: <strong className="text-slate-400">{s.nis}</strong></span>
+                            <span>&bull;</span>
+                            <span className="text-indigo-400 font-sans font-bold">{cl ? cl.nama_kelas : 'Tanpa Kelas'}</span>
+                            <span>&bull;</span>
+                            <span className="text-emerald-400 font-sans font-medium text-[9px] bg-emerald-950/20 border border-emerald-500/10 px-1.5 py-0.2 rounded">
+                              Jurusan: {cl?.jurusan || 'Desain Komunikasi Visual'}
+                            </span>
                           </p>
                         </div>
 
@@ -309,9 +350,9 @@ export default function AdminCatalogTab(props: AdminTabProps) {
 
           {/* Modal Edit Siswa Popup */}
           {editingStudent && (
-            <div className="fixed inset-0 bg-[#090d16]/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+            <div className="fixed inset-0 bg-[#090d16]/90 backdrop-blur-md z-50 overflow-y-auto flex items-start justify-center p-4 sm:p-6 md:p-10">
               <div 
-                className="bg-[#161b22] border border-slate-800 w-full max-w-md rounded-3xl shadow-2xl p-6 relative overflow-hidden animate-in zoom-in-95 duration-150"
+                className="bg-[#161b22] border border-slate-800 w-full max-w-md rounded-3xl shadow-2xl p-6 relative my-auto animate-in zoom-in-95 duration-150 scrollbar-thin"
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="absolute top-0 right-0 w-24 h-24 rounded-full bg-blue-500/5 blur-xl pointer-events-none" />

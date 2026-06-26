@@ -6,6 +6,7 @@ import {
 import { Kelas, Pengguna, Jadwal } from '../../types';
 
 import WaliKelasValidasi from './WaliKelasValidasi';
+import WaliKelasCatatan from './WaliKelasCatatan';
 
 interface WaliKelasViewProps {
   currentUser: Pengguna;
@@ -28,7 +29,7 @@ export default function WaliKelasView({ currentUser, classes, onNavigateToTab }:
   const [studentStats, setStudentStats] = useState<StudentStat[]>([]);
   const [schedules, setSchedules] = useState<Jadwal[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
-  const [activeSubTab, setActiveSubTab] = useState<'siswa' | 'diagnosa' | 'jadwal' | 'validasi'>('siswa');
+  const [activeSubTab, setActiveSubTab] = useState<'siswa' | 'diagnosa' | 'jadwal' | 'validasi' | 'catatan'>('siswa');
 
   useEffect(() => {
     if (myClasses.length > 0 && !selectedClassId) {
@@ -247,6 +248,18 @@ export default function WaliKelasView({ currentUser, classes, onNavigateToTab }:
         >
           <CheckCircle2 className="w-4 h-4" />
           <span>Validasi Absensi</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab('catatan')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+            activeSubTab === 'catatan' 
+              ? 'bg-[#0f1219] text-blue-400 border border-blue-500/20 shadow-md' 
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <BookOpen className="w-4 h-4" />
+          <span>Catatan Wali Kelas</span>
         </button>
       </div>
 
@@ -555,6 +568,10 @@ export default function WaliKelasView({ currentUser, classes, onNavigateToTab }:
 
           {activeSubTab === 'validasi' && activeClass && (
             <WaliKelasValidasi kelasId={activeClass.id} />
+          )}
+
+          {activeSubTab === 'catatan' && activeClass && (
+            <WaliKelasCatatan currentUser={currentUser} kelasId={activeClass.id} />
           )}
         </>
       )}

@@ -190,6 +190,7 @@ export default function HomeKelasTab(props: any) {
                               </div>
 
                               {/* Action items inside class details */}
+                              {(!currentUser || currentUser.role === 'admin' || k.is_mengajar === 1) && (
                               <div className="flex gap-2.5">
                                 <button
                                   onClick={() => onNavigateToTab('absensi', k.id)}
@@ -212,9 +213,10 @@ export default function HomeKelasTab(props: any) {
                                   Input Nilai Kelas
                                 </button>
                               </div>
+                              )}
 
                               {/* Class-level Summary Statistics (Recharts Component) */}
-                              {classStats && classStats.length > 0 && (() => {
+                              {(!currentUser || currentUser.role === 'admin' || k.is_mengajar === 1) && classStats && classStats.length > 0 && (() => {
                                 const isScrollable = classStats.length > 15;
                                 const chartMinWidth = isScrollable ? Math.max(700, classStats.length * 35) : '100%';
                                 return (
@@ -240,7 +242,8 @@ export default function HomeKelasTab(props: any) {
 
                                     <div className="w-full overflow-x-auto scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
                                       <div style={{ width: chartMinWidth === '100%' ? '100%' : `${chartMinWidth}px`, height: '200px' }}>
-                                        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
+                                        {/* Menggunakan nilai tinggi tetap (height={200}) pada ResponsiveContainer untuk menghindari kegagalan kalkulasi ukuran saat wadah sedang beranimasi */}
+                                        <ResponsiveContainer width="100%" height={200} minWidth={0} minHeight={200}>
                                           <ComposedChart data={classStats} margin={{ top: 10, right: 0, left: -25, bottom: 0 }}>
                                             <CartesianGrid strokeDasharray="3 3" stroke={theme === 'light' ? '#e2e8f0' : '#1f2937'} opacity={theme === 'light' ? 0.8 : 0.3} />
                                             <XAxis dataKey="name" stroke={theme === 'light' ? '#64748b' : '#4b5563'} tick={{ fontSize: 9 }} />

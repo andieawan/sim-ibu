@@ -82,7 +82,9 @@ export default function ProfilView({
   const fetchStats = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/stats?guru_id=${currentUser.id}&role=${currentUser.role}`);
+      // Di tab Beranda -> Statistik, semua peran (termasuk Kajur/Kepsek) bertindak sebagai Pengajar (Guru).
+      // Oleh karena itu, kita paksa role='guru' agar mereka hanya melihat statistik dari kelas yang mereka ajar.
+      const res = await fetch(`/api/stats?guru_id=${currentUser.id}&role=guru`);
       if (res.ok) {
         const data = await res.json();
         setStats(data);
@@ -136,7 +138,8 @@ export default function ProfilView({
       setModalLoading(true);
       try {
         const typeParam = activeModal === 'all_students' ? 'all' : activeModal;
-        let url = `/api/stats/students?guru_id=${currentUser.id}&role=${currentUser.role}&type=${typeParam}`;
+        // Paksa role='guru' agar rincian siswa yang muncul hanya dari kelas yang diajar
+        let url = `/api/stats/students?guru_id=${currentUser.id}&role=guru&type=${typeParam}`;
         if (selectedClassIdForModal) {
           url += `&kelas_id=${selectedClassIdForModal}`;
         }

@@ -23,6 +23,9 @@ const NilaiView = lazy(() => import('./views/guru/NilaiView'));
 const RekapView = lazy(() => import('./views/guru/RekapView'));
 const AdminView = lazy(() => import('./views/admin/AdminView'));
 const WaliMuridView = lazy(() => import('./views/wali-murid/WaliMuridView'));
+const BkView = lazy(() => import('./views/bk/BkView'));
+const KajurView = lazy(() => import('./views/kajur/KajurView'));
+const KepsekView = lazy(() => import('./views/kepsek/KepsekView'));
 
 // Loader Fallback minimalis dengan efek rotasi spinner dan teks berkedip (pulse)
 const LoadingFallback = () => (
@@ -63,7 +66,8 @@ export default function App() {
   });
 
   const [currentUser, setCurrentUser] = useState<Pengguna | null>(() => {
-    const saved = sessionStorage.getItem('simibu_user');
+    // Aliran Data: Membaca status login pengguna dari penyimpanan lokal atau sesi untuk standardisasi simibu_user
+    const saved = localStorage.getItem('simibu_user') || sessionStorage.getItem('simibu_user');
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -201,6 +205,12 @@ export default function App() {
         return 'Panel Admin';
       case 'walikelas':
         return 'Evaluasi Wali Kelas';
+      case 'bk':
+        return 'Bimbingan Konseling';
+      case 'kajur':
+        return 'Kepala Jurusan';
+      case 'kepsek':
+        return 'Kepala Sekolah';
       default:
         return 'SIM-IBU';
     }
@@ -227,6 +237,12 @@ export default function App() {
         return `${academicInfo} Pengelolaan akun pengguna dan server sekolah`;
       case 'walikelas':
         return `${academicInfo} Dashboard khusus monitor kinerja presensi dan IP nilai siswa bimbingan`;
+      case 'bk':
+        return `${academicInfo} Memantau kedisiplinan dan prestasi siswa`;
+      case 'kajur':
+        return `${academicInfo} Evaluasi kelayakan program keahlian dan PKL`;
+      case 'kepsek':
+        return `${academicInfo} Laporan eksekutif ringkasan akademik sekolah`;
       default:
         return academicInfo;
     }
@@ -237,14 +253,17 @@ export default function App() {
       <LoginView
         appEnv={appEnv}
         onLoginSuccess={(user) => {
+          // Aliran Data: Menyimpan data pengguna ke localStorage dan sessionStorage setelah sukses login
           setCurrentUser(user);
-          sessionStorage.setItem('sigup_user', JSON.stringify(user));
+          localStorage.setItem('simibu_user', JSON.stringify(user));
+          sessionStorage.setItem('simibu_user', JSON.stringify(user));
         }}
       />
     );
   }
 
   const isWaliKelas = classes.some(c => c.walikelas_id === currentUser?.id);
+  const kelasMengajar = currentUser?.role === 'admin' ? classes : classes.filter(c => c.is_mengajar === 1);
 
   return (
     <div className={`min-h-screen theme-${theme} bg-[#0b0e14] text-slate-200 font-sans pb-28 antialiased selection:bg-blue-600/20 selection:text-blue-400`}>
@@ -313,7 +332,7 @@ export default function App() {
 
           {currentTab === 'absensi' && (
             <AbsensiView
-              classes={classes}
+              classes={kelasMengajar}
               loadingClasses={loadingClasses}
               selectedClassId={selectedClassId}
               onClassChange={setSelectedClassId}
@@ -322,7 +341,7 @@ export default function App() {
 
           {currentTab === 'nilai' && (
             <NilaiView
-              classes={classes}
+              classes={kelasMengajar}
               loadingClasses={loadingClasses}
               selectedClassId={selectedClassId}
               onClassChange={setSelectedClassId}
@@ -331,7 +350,7 @@ export default function App() {
 
           {currentTab === 'rekap' && (
             <RekapView
-              classes={classes}
+              classes={kelasMengajar}
               loadingClasses={loadingClasses}
               selectedClassId={selectedClassId}
               onClassChange={setSelectedClassId}
@@ -345,6 +364,18 @@ export default function App() {
               currentUser={currentUser}
               onNavigateToTab={handleNavigateToTab}
             />
+          )}
+
+          {currentTab === 'bk' && (
+            <BkView currentUser={currentUser} />
+          )}
+
+          {currentTab === 'kajur' && (
+            <KajurView currentUser={currentUser} classes={classes} />
+          )}
+
+          {currentTab === 'kepsek' && (
+            <KepsekView currentUser={currentUser} classes={classes} />
           )}
         </Suspense>
       </main>
@@ -428,7 +459,16 @@ export default function App() {
       />
 
       {/* Global Bot navigational bar */}
-      <Navbar currentTab={currentTab} setTab={setCurrentTab} isAdmin={currentUser.role === 'admin'} isWaliKelas={isWaliKelas} isWaliMurid={currentUser.role === 'wali_murid'} />
+      <Navbar 
+        currentTab={currentTab} 
+        setTab={setCurrentTab} 
+        isAdmin={currentUser.role === 'admin'} 
+        isWaliKelas={isWaliKelas} 
+        isWaliMurid={currentUser.role === 'wali_murid'}
+        isBk={currentUser.role === 'bk'}
+        isKajur={currentUser.role === 'kajur'}
+        isKepsek={currentUser.role === 'kepsek'}
+      />
 
       {/* Profile Sidebar Menu */}
       <AnimatePresence>
@@ -446,12 +486,16 @@ export default function App() {
               setIsChangelogOpen(true);
             }}
             onUpdateUser={(updatedUser) => {
+              // Aliran Data: Memperbarui data pengguna secara sinkron di kedua penyimpanan (localStorage & sessionStorage)
               const fullUser = { ...currentUser, ...updatedUser };
               setCurrentUser(fullUser);
+              localStorage.setItem('simibu_user', JSON.stringify(fullUser));
               sessionStorage.setItem('simibu_user', JSON.stringify(fullUser));
             }}
             onLogout={() => {
+              // Aliran Data: Menghapus data login dari kedua penyimpanan pada saat logout
               setCurrentUser(null);
+              localStorage.removeItem('simibu_user');
               sessionStorage.removeItem('simibu_user');
               setCurrentTab('beranda');
               setShowProfileMenu(false);

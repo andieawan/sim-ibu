@@ -93,7 +93,8 @@ export function useSpreadsheetImport(onSuccess?: () => void) {
     setImportStatus({ type: '', message: 'Sedang mengimpor data...' });
     
     try {
-      const saved = sessionStorage.getItem('simibu_user');
+      // Aliran Data: Mengambil data token pengguna terautentikasi (simibu_user) dari localStorage atau sessionStorage untuk kelancaran impor
+      const saved = localStorage.getItem('simibu_user') || sessionStorage.getItem('simibu_user');
       let token = '';
       if (saved) {
         const u = JSON.parse(saved);

@@ -165,9 +165,20 @@ export default function WaliMuridView({ currentUser, theme = 'dark' }: WaliMurid
         </div>
 
         {attendance.length === 0 ? (
-          <div className="py-12 flex flex-col items-center justify-center text-slate-500 text-xs">
-            <Clock className="w-8 h-8 mb-3 opacity-20" />
-            <p>Belum ada data absensi yang divalidasi oleh Wali Kelas pada semester ini.</p>
+          <div className="py-16 px-6 flex flex-col items-center justify-center text-center max-w-md mx-auto space-y-4">
+            <div className="w-14 h-14 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 shadow-inner">
+              <Clock className="w-7 h-7 text-indigo-400 opacity-80 animate-pulse" />
+            </div>
+            <div className="space-y-1.5">
+              <h4 className="text-sm font-bold text-slate-200">Tidak Ada Data Absensi Tervalidasi</h4>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Saat ini belum ada data kehadiran siswa yang divalidasi dan disetujui oleh Wali Kelas untuk semester aktif. 
+                Data kehadiran harian anak Anda akan muncul secara otomatis di sini setelah divalidasi secara resmi oleh Wali Kelas yang bersangkutan.
+              </p>
+            </div>
+            <div className="p-3 bg-indigo-950/20 border border-indigo-500/10 rounded-xl text-[11px] text-slate-400 leading-relaxed">
+              💡 <strong>Informasi Tambahan:</strong> Anda dapat berkoordinasi secara berkala dengan Wali Kelas pengajar (<strong>{classInfo.nama_walikelas || 'Belum Ditentukan'}</strong>) jika terdapat keterlambatan dalam pembaruan data kehadiran harian anak Anda.
+            </div>
           </div>
         ) : selectedAbsensiId ? (
           <div className="space-y-4">

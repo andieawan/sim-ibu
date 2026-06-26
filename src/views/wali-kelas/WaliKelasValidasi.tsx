@@ -31,7 +31,8 @@ interface DetailRec {
 export default function WaliKelasValidasi({ kelasId }: WaliKelasValidasiProps) {
   const getAuthHeader = () => {
     try {
-      const saved = sessionStorage.getItem('simibu_user');
+      // Aliran Data: Mengambil data token pengguna (simibu_user) dari localStorage atau sessionStorage untuk otentikasi API wali kelas
+      const saved = localStorage.getItem('simibu_user') || sessionStorage.getItem('simibu_user');
       if (saved) {
         const u = JSON.parse(saved);
         if (u && u.token) {

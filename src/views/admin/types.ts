@@ -9,6 +9,7 @@ export interface AdminTabProps {
   // Common
   classes: any[];
   onRefreshClasses: () => void;
+  onRefreshUsers: () => void;
   currentUser: any;
   
   // Appended Props
@@ -27,8 +28,12 @@ export interface AdminTabProps {
   formUsername: string;
   formPassword: string;
   formNama: string;
-  formRole: 'admin' | 'guru' | 'wali_murid';
+  formRole: 'admin' | 'guru' | 'wali_murid' | 'bk' | 'kajur' | 'kepsek';
   formKelasId: number | '';
+  formJurusan: string;
+  formNip: string;
+  formJabatan: string;
+  formIsCuti: number;
   showAddForm: boolean;
   stats: any;
   loadingStats: boolean;
@@ -84,6 +89,10 @@ export interface AdminTabProps {
   setFormNama: (v: string) => void;
   setFormRole: (v: any) => void;
   setFormKelasId: (v: any) => void;
+  setFormJurusan: (v: string) => void;
+  setFormNip: (v: string) => void;
+  setFormJabatan: (v: string) => void;
+  setFormIsCuti: (v: number) => void;
   setShowAddForm: (v: boolean) => void;
   setEditingUserId: (v: number | null) => void;
   handleUserSubmit: (e: any) => void;
@@ -108,6 +117,15 @@ export interface AdminTabProps {
   setPromotionSourceClass: (v: string) => void;
   setPromotionTargetClass: (v: string) => void;
   handleBulkAction: (action: string) => void;
+  
+  // ============================================================================
+  // PROPS: setCatalogSiswa
+  // Maksud Bisnis: Fungsi pemutakhiran state katalog siswa secara langsung dari tab anak (AdminCatalogTab)
+  //   untuk menyelaraskan data siswa yang aktif tanpa perlu melakukan reload halaman penuh.
+  // Aliran Data:
+  // - Input: Array siswa terbaru (`Siswa[]`) atau fungsi dispatcher state React.
+  // - Output: Memperbarui state `catalogSiswa` pada komponen induk (AdminView.tsx).
+  // ============================================================================
   setCatalogSiswa: React.Dispatch<React.SetStateAction<Siswa[]>>;
 
   // Jadwal

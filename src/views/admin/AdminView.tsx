@@ -28,10 +28,14 @@ interface AdminUser {
   id: number;
   username: string;
   nama: string;
-  role: 'admin' | 'guru' | 'wali_murid';
+  role: 'admin' | 'guru' | 'wali_murid' | 'bk' | 'kajur' | 'kepsek';
   kelas_id?: number | null;
   nama_siswa?: string;
   nama_kelas?: string;
+  jurusan?: string;
+  nip?: string;
+  jabatan?: string;
+  is_cuti?: number;
 }
 
 export default function AdminView({ classes, onRefreshClasses, currentUser, onNavigateToTab }: AdminViewProps) {
@@ -114,8 +118,12 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
   const [formUsername, setFormUsername] = useState('');
   const [formPassword, setFormPassword] = useState(''); // can be left empty in edit
   const [formNama, setFormNama] = useState('');
-  const [formRole, setFormRole] = useState<'admin' | 'guru' | 'wali_murid'>('guru');
+  const [formRole, setFormRole] = useState<'admin' | 'guru' | 'wali_murid' | 'bk' | 'kajur' | 'kepsek'>('guru');
   const [formKelasId, setFormKelasId] = useState<number | ''>('');
+  const [formJurusan, setFormJurusan] = useState<string>('');
+  const [formNip, setFormNip] = useState('');
+  const [formJabatan, setFormJabatan] = useState('');
+  const [formIsCuti, setFormIsCuti] = useState<number>(0);
   const [showAddForm, setShowAddForm] = useState(false);
 
   // System stats
@@ -570,17 +578,19 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
         let foundPatchesCount = 0;
         let fileIndex = 0;
         
-        for (const [relativePath, zipEntry] of Object.entries(loadedZip.files)) {
-          if (zipEntry.dir) continue;
+        const validEntries = Object.entries(loadedZip.files).filter(([relativePath, zipEntry]) => {
+          if (zipEntry.dir) return false;
           if (relativePath.includes('__MACOSX') || relativePath.split('/').pop()?.startsWith('.')) {
-            continue;
+            return false;
           }
-          
+          const lowerPath = relativePath.toLowerCase();
+          return lowerPath.endsWith('.json') || lowerPath.endsWith('.sql');
+        });
+
+        await Promise.all(validEntries.map(async ([relativePath, zipEntry]) => {
           const lowerPath = relativePath.toLowerCase();
           const isEntryJson = lowerPath.endsWith('.json');
           const isEntrySql = lowerPath.endsWith('.sql');
-          
-          if (!isEntryJson && !isEntrySql) continue;
           
           const content = await zipEntry.async('string');
           const cleanFileName = relativePath.split('/').pop() || relativePath;
@@ -614,7 +624,8 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
             }
           }
           
-          for (const payload of patchPayloads) {
+          // Mengunggah setiap payload patch secara paralel
+          await Promise.all(patchPayloads.map(async (payload) => {
             const res = await fetch('/api/patches/upload', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -624,9 +635,10 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
             if (res.ok && data.success) {
               foundPatchesCount++;
             }
-          }
+          }));
+          
           fileIndex += Math.max(1, patchPayloads.length);
-        }
+        }));
         
         if (foundPatchesCount > 0) {
           setPatchAlert({ 
@@ -852,7 +864,11 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
         nama: formNama.trim(),
         role: formRole,
         password: formPassword.trim() || undefined,
-        kelas_id: formRole === 'wali_murid' ? formKelasId : null
+        kelas_id: formRole === 'wali_murid' ? formKelasId : null,
+        jurusan: formRole === 'kajur' ? formJurusan : '',
+        nip: formNip.trim(),
+        jabatan: formJabatan.trim(),
+        is_cuti: formIsCuti
       };
 
       const res = await fetch(url, {
@@ -876,6 +892,7 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
       // Reset forms
       resetUserForm();
       fetchUsers();
+      await onRefreshClasses();
       fetchSystemSummary();
     } catch (err: any) {
       setUserErrorMsg(err.message || 'Gagal memproses permintaan');
@@ -889,6 +906,10 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
     setFormNama('');
     setFormRole('guru');
     setFormKelasId('');
+    setFormJurusan('');
+    setFormNip('');
+    setFormJabatan('');
+    setFormIsCuti(0);
     setShowAddForm(false);
   };
 
@@ -898,6 +919,10 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
     setFormNama(u.nama);
     setFormRole(u.role);
     setFormKelasId(u.kelas_id || '');
+    setFormJurusan(u.jurusan || '');
+    setFormNip(u.nip || '');
+    setFormJabatan(u.jabatan || '');
+    setFormIsCuti(u.is_cuti || 0);
     setFormPassword(''); // leave blank by default
     setShowAddForm(true);
     setUserErrorMsg('');
@@ -924,6 +949,7 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
       }
       setUserSuccessMsg('Akun pengguna berhasil dihapus');
       fetchUsers();
+      await onRefreshClasses();
       fetchSystemSummary();
     } catch (err: any) {
       setUserErrorMsg(err.message);
@@ -1068,14 +1094,14 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
 
   // Provide all states as props
   const tabProps = {
-    classes, onRefreshClasses, currentUser,
+    classes, onRefreshClasses, onRefreshUsers: fetchUsers, currentUser,
     users, loadingUsers, userSuccessMsg, userErrorMsg, editingUserId,
-    formUsername, formPassword, formNama, formRole, formKelasId, showAddForm, stats, loadingStats,
+    formUsername, formPassword, formNama, formRole, formKelasId, formJurusan, formNip, formJabatan, formIsCuti, showAddForm, stats, loadingStats,
     catalogSiswa, loadingCatalog, searchQuery, selectedClassFilter, selectedClassForImport, csvFile, csvPreview, parsedSiswaList, importStatus, promoting, promotionTargetClass, promotionSourceClass, promotionMode,
     schedules, loadingSchedules, scheduleAlert, editingScheduleId, scheduleDeleteConfirmId, newSchedClassId, newSchedGuruId, newSchedMatpel, newSchedHari, newSchedMulai, newSchedSelesai, schedViewMode, schedSearchQuery,
     systemAlert, schoolIdentity, loadingIdentity, identityAlert, systemPatches, loadingPatches, diagnostics, runningDiagnostics, patchActionLoading, patchAlert, isDragging, uploadingPatch,
     codebaseCheckResult, setCodebaseCheckResult, uploadedBase64Zip, setUploadedBase64Zip, applyingCodebaseUpdate, handleApplyCodebaseUpdate,
-    setFormUsername, setFormPassword, setFormNama, setFormRole, setFormKelasId, setShowAddForm, setEditingUserId, handleUserSubmit, handleEditClick, handleDeleteUser, resetUserForm, 
+    setFormUsername, setFormPassword, setFormNama, setFormRole, setFormKelasId, setFormJurusan, setFormNip, setFormJabatan, setFormIsCuti, setShowAddForm, setEditingUserId, handleUserSubmit, handleEditClick, handleDeleteUser, resetUserForm, 
     setSearchQuery, setSelectedClassFilter, setSelectedClassForImport, handleFileChange, handleUploadCSV, setCsvFile, setCsvPreview, setParsedSiswaList, setImportStatus, handleDeleteStudent, handleDeleteClass, setPromoting, setPromotionMode, setPromotionSourceClass, setPromotionTargetClass, handleBulkAction,
     setSchedViewMode, setSchedSearchQuery, setNewSchedClassId, setNewSchedGuruId, setNewSchedMatpel, setNewSchedHari, setNewSchedMulai, setNewSchedSelesai, setEditingScheduleId, setScheduleDeleteConfirmId, handleAddSchedule, handleEditScheduleClick, handleDeleteSchedule, resetScheduleForm,
     setSchoolIdentity, handleSaveSchoolIdentity, runSystemDiagnostics, handleApplyAllPatches, handleDragOver, handleDragLeave, handleDrop, handlePatchUpload, handleResetDatabase,

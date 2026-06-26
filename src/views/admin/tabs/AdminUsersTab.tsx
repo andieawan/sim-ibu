@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { 
   Users, Key, Plus, Trash2, Shield, Settings, Database, 
   RotateCcw, CheckCircle2, ShieldAlert, Edit, Save, X, 
@@ -10,18 +10,34 @@ import { useMultiSpreadsheetImport } from '../hooks/useMultiSpreadsheetImport';
 
 export default function AdminUsersTab(props: AdminTabProps) {
   const {
-    classes, onRefreshClasses, currentUser,
+    classes, onRefreshClasses, onRefreshUsers, currentUser,
     users, loadingUsers, userSuccessMsg, userErrorMsg, editingUserId,
-    formUsername, formPassword, formNama, formRole, formKelasId, showAddForm, stats, loadingStats,
+    formUsername, formPassword, formNama, formRole, formKelasId, formJurusan, formNip, formJabatan, formIsCuti, showAddForm, stats, loadingStats,
     catalogSiswa, loadingCatalog, searchQuery, selectedClassFilter, selectedClassForImport, csvFile, csvPreview, parsedSiswaList, importStatus, promoting, promotionTargetClass, promotionSourceClass, promotionMode,
     schedules, loadingSchedules, scheduleAlert, editingScheduleId, scheduleDeleteConfirmId, newSchedClassId, newSchedGuruId, newSchedMatpel, newSchedHari, newSchedMulai, newSchedSelesai, schedViewMode, schedSearchQuery,
     systemAlert, schoolIdentity, loadingIdentity, identityAlert, systemPatches, loadingPatches, diagnostics, runningDiagnostics, patchActionLoading, patchAlert, isDragging, uploadingPatch,
-    setFormUsername, setFormPassword, setFormNama, setFormRole, setFormKelasId, setShowAddForm, setEditingUserId, handleUserSubmit, handleEditClick, handleDeleteUser, resetUserForm, 
+    setFormUsername, setFormPassword, setFormNama, setFormRole, setFormKelasId, setFormJurusan, setFormNip, setFormJabatan, setFormIsCuti, setShowAddForm, setEditingUserId, handleUserSubmit, handleEditClick, handleDeleteUser, resetUserForm, 
     setSearchQuery, setSelectedClassFilter, setSelectedClassForImport, handleFileChange, handleUploadCSV, setCsvFile, setCsvPreview, setParsedSiswaList, setImportStatus, handleDeleteStudent, handleDeleteClass, setPromoting, setPromotionMode, setPromotionSourceClass, setPromotionTargetClass, handleBulkAction,
     setSchedViewMode, setSchedSearchQuery, setNewSchedClassId, setNewSchedGuruId, setNewSchedMatpel, setNewSchedHari, setNewSchedMulai, setNewSchedSelesai, setEditingScheduleId, setScheduleDeleteConfirmId, handleAddSchedule, handleEditScheduleClick, handleDeleteSchedule, resetScheduleForm,
     setSchoolIdentity, handleSaveSchoolIdentity, runSystemDiagnostics, handleApplyAllPatches, handleDragOver, handleDragLeave, handleDrop, handlePatchUpload, handleResetDatabase,
     downloadSampleCSV, exportStudentsToExcel, filteredSiswa, setScheduleAlert, setPatchAlert
   } = props;
+
+  // Maksud Bisnis: Mengontrol scroll-lock pada body document untuk mencegah double-scrolling ketika modal aktif
+  useEffect(() => {
+    if (showAddForm) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showAddForm]);
+
+  // Ekstrak jurusan unik dari daftar kelas untuk "kepala jurusan tergantung banyaknya jurusan yang ada"
+  const uniqueJurusans = Array.from(new Set(classes.map(c => c.jurusan).filter(Boolean)));
+  const availableJurusans = uniqueJurusans.length > 0 ? uniqueJurusans : ['Desain Komunikasi Visual', 'Rekayasa Perangkat Lunak', 'Teknik Komputer & Jaringan', 'Akuntansi'];
 
   // Fitur Impor Guru secara massal via Excel telah dipindahkan dan dipusatkan ke tab "Upload"
 
@@ -65,17 +81,44 @@ export default function AdminUsersTab(props: AdminTabProps) {
                               ? 'bg-emerald-950/40 text-emerald-400 border-emerald-500/10' 
                               : u.role === 'wali_murid'
                               ? 'bg-amber-950/40 text-amber-400 border-amber-500/10'
+                              : u.role === 'bk'
+                              ? 'bg-purple-950/40 text-purple-400 border-purple-500/10'
+                              : u.role === 'kajur'
+                              ? 'bg-teal-950/40 text-teal-400 border-teal-500/10'
+                              : u.role === 'kepsek'
+                              ? 'bg-rose-950/40 text-rose-400 border-rose-500/10'
                               : 'bg-indigo-950/40 text-indigo-400 border-indigo-500/10'
                           }`}>
-                            {u.role === 'wali_murid' ? 'wali murid' : u.role}
+                            {u.role === 'wali_murid' ? 'wali murid' : u.role === 'bk' ? 'guru bk' : u.role === 'kajur' ? 'kepala jurusan' : u.role === 'kepsek' ? 'kepala sekolah' : u.role}
                           </span>
+                          
+                          {u.is_cuti === 1 && (
+                            <span className="text-[9px] px-2 py-0.5 font-bold uppercase tracking-wider rounded font-mono border bg-rose-950/60 text-rose-400 border-rose-500/20">
+                              SEDANG CUTI
+                            </span>
+                          )}
                         </div>
                         <p className="text-2xs text-slate-500 font-mono truncate">
                           Username: <strong className="text-slate-400">{u.username}</strong>
                         </p>
+                        {u.nip && (
+                          <p className="text-2xs text-slate-400 font-mono truncate">
+                            NIP: <span className="text-slate-300">{u.nip}</span>
+                          </p>
+                        )}
+                        {u.jabatan && (
+                          <p className="text-2xs text-slate-400 font-medium truncate">
+                            Jabatan: <span className="text-slate-300">{u.jabatan}</span>
+                          </p>
+                        )}
                         {u.role === 'wali_murid' && u.nama_kelas && (
                           <p className="text-2xs text-amber-500 font-semibold truncate">
                             Memantau Kelas: <span className="underline">{u.nama_kelas}</span>
+                          </p>
+                        )}
+                        {u.role === 'kajur' && u.jurusan && (
+                          <p className="text-2xs text-teal-400 font-semibold truncate">
+                            Kepala Jurusan: <span className="underline">{u.jurusan}</span>
                           </p>
                         )}
                       </div>
@@ -106,10 +149,10 @@ export default function AdminUsersTab(props: AdminTabProps) {
 
             {/* User Form Modal - Ditampilkan di Tengah Layar dengan Backdrop Blur */}
             {showAddForm && (
-              <div className="fixed inset-0 bg-[#090d16]/90 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
+              <div className="fixed inset-0 bg-[#090d16]/90 backdrop-blur-md z-50 overflow-y-auto flex items-start justify-center p-4 sm:p-6 md:p-10">
                 {/* Animasi membal keluar (zoom-in) menggunakan framer-motion/motion */}
                 <div 
-                  className="bg-[#161b22] border border-slate-800 w-full max-w-lg rounded-3xl shadow-2xl p-6 relative overflow-hidden animate-in zoom-in-95 duration-150"
+                  className="bg-[#161b22] border border-slate-800 w-full max-w-lg rounded-3xl shadow-2xl p-6 relative my-auto animate-in zoom-in-95 duration-150 scrollbar-thin"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-blue-500/5 blur-2xl pointer-events-none" />
@@ -176,10 +219,74 @@ export default function AdminUsersTab(props: AdminTabProps) {
                         disabled={editingUserId !== null && formUsername === 'admin'} // lock core admin role change
                       >
                         <option value="guru">Guru (Hanya Kelas Bimbingan &amp; Nilai)</option>
+                        <option value="bk">Guru BK (Bimbingan Konseling)</option>
+                        <option value="kajur">Kepala Jurusan (Kajur)</option>
+                        <option value="kepsek">Kepala Sekolah (Kepsek)</option>
                         <option value="admin">Administrator (Akses Penuh Kelola Akun &amp; DB)</option>
                         <option value="wali_murid">Wali Murid / Orang Tua (Akses Monitoring Siswa)</option>
                       </select>
                     </div>
+
+                    {['guru', 'bk', 'kajur', 'kepsek'].includes(formRole) && (
+                      <>
+                        <div className="space-y-1.5 animate-in fade-in-50 duration-200">
+                          <label className="text-2xs font-extrabold uppercase text-slate-500 tracking-wider">NIP (Nomor Induk Pegawai)</label>
+                          <input
+                            type="text"
+                            className="w-full px-4 py-2.5 bg-[#0f1219] border border-slate-800 rounded-xl text-xs focus:outline-none focus:border-blue-500 font-semibold text-slate-200"
+                            placeholder="Masukkan NIP resmi..."
+                            value={formNip}
+                            onChange={(e) => setFormNip(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-1.5 animate-in fade-in-50 duration-200">
+                          <label className="text-2xs font-extrabold uppercase text-slate-500 tracking-wider">Jabatan / Spesialisasi</label>
+                          <input
+                            type="text"
+                            className="w-full px-4 py-2.5 bg-[#0f1219] border border-slate-800 rounded-xl text-xs focus:outline-none focus:border-blue-500 font-semibold text-slate-200"
+                            placeholder="Contoh: Guru Matematika, Staf BK..."
+                            value={formJabatan}
+                            onChange={(e) => setFormJabatan(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-1.5 animate-in fade-in-50 duration-200">
+                          <label className="text-2xs font-extrabold uppercase text-slate-500 tracking-wider">Status Keaktifan / Cuti</label>
+                          <select
+                            className="w-full px-4 py-2.5 bg-[#0f1219] border border-slate-800 rounded-xl text-xs focus:outline-none focus:border-blue-500 font-semibold text-slate-350"
+                            value={formIsCuti}
+                            onChange={(e) => setFormIsCuti(parseInt(e.target.value) || 0)}
+                          >
+                            <option value={0}>Aktif (Sedang Bertugas)</option>
+                            <option value={1}>Cuti (Tidak Bertugas / Libur Sementara)</option>
+                          </select>
+                        </div>
+                      </>
+                    )}
+
+                    {formRole === 'kepsek' && (
+                      <div className="p-3 bg-blue-950/40 border border-blue-500/20 rounded-xl text-blue-400 text-2xs leading-relaxed animate-in fade-in-50 duration-200">
+                        <strong>Informasi Penunjukan Kepala Sekolah:</strong> Kepala sekolah ditunjuk secara eksklusif untuk maksimal 1 guru. Memilih atau menyimpan akun ini dengan role Kepala Sekolah akan otomatis memindahkan status Kepala Sekolah dari akun sebelumnya ke akun ini.
+                      </div>
+                    )}
+
+                    {formRole === 'kajur' && (
+                      <div className="space-y-1.5 dynamic-student-link transition-all duration-300 animate-in fade-in-50">
+                        <label className="text-2xs font-extrabold uppercase text-slate-500 tracking-wider">Kepala Jurusan Untuk</label>
+                        <select
+                          className="w-full px-4 py-2.5 bg-[#0f1219] border border-slate-800 rounded-xl text-xs focus:outline-none focus:border-blue-500 font-semibold text-slate-350"
+                          value={formJurusan}
+                          onChange={(e) => setFormJurusan(e.target.value)}
+                          required
+                        >
+                          <option value="">-- Pilih Jurusan (Tergantung banyaknya jurusan) --</option>
+                          {availableJurusans.map((jur, idx) => (
+                            <option key={idx} value={jur}>
+                              {jur}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
 
                     {formRole === 'wali_murid' && (
                       <div className="space-y-1.5 dynamic-student-link transition-all duration-300 animate-in fade-in-50">

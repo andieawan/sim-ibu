@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Users, GraduationCap, Percent, Info, RefreshCw, UserX, BarChart3,
@@ -11,6 +11,18 @@ export default function ProfilModals(props: any) {
     activeModal, setActiveModal, modalData,
     searchQuery, setSearchQuery, onNavigateToTab, stats, onClassChange, classSuffix, targetClass, modalLoading
   } = props;
+
+  // Maksud Bisnis: Mengontrol scroll-lock pada body document untuk mencegah double-scrolling ketika salah satu profil modal aktif
+  useEffect(() => {
+    if (activeModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [activeModal]);
 
   return (
       <AnimatePresence>

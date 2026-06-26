@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { X, Loader2, Save, ArrowLeft } from 'lucide-react';
 import { formatIndoDate } from '../../utils';
 
@@ -24,6 +24,18 @@ export default function NilaiHistoryModal(props: any) {
     handleUpdateGrades,
     setWarningMessage
   } = props;
+
+  // Maksud Bisnis: Mengontrol scroll-lock pada body document untuk mencegah double-scrolling ketika detail riwayat nilai aktif
+  useEffect(() => {
+    if (selectedHistorySession) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [selectedHistorySession]);
 
   return (
 

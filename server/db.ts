@@ -321,6 +321,12 @@ export async function initializeDatabase() {
       // Ignore if the column already exists
     }
 
+    try {
+      await dbRun("ALTER TABLE kelas ADD COLUMN jurusan TEXT DEFAULT ''");
+    } catch (e) {
+      // Ignore
+    }
+
     // 2. Table Siswa
     await dbRun(`
       CREATE TABLE IF NOT EXISTS siswa (
@@ -405,7 +411,8 @@ export async function initializeDatabase() {
         nama TEXT NOT NULL,
         role TEXT NOT NULL,
         nip TEXT DEFAULT '',
-        jabatan TEXT DEFAULT ''
+        jabatan TEXT DEFAULT '',
+        is_cuti INTEGER DEFAULT 0
       )
     `);
 
@@ -433,6 +440,18 @@ export async function initializeDatabase() {
       // Ignore if column already exists
     }
 
+    try {
+      await dbRun("ALTER TABLE pengguna ADD COLUMN jurusan TEXT DEFAULT ''");
+    } catch (e) {
+      // Ignore
+    }
+
+    try {
+      await dbRun("ALTER TABLE pengguna ADD COLUMN is_cuti INTEGER DEFAULT 0");
+    } catch (e) {
+      // Ignore
+    }
+
     // 8. Table Jadwal
     await dbRun(`
       CREATE TABLE IF NOT EXISTS jadwal (
@@ -444,6 +463,37 @@ export async function initializeDatabase() {
         waktu_mulai TEXT NOT NULL,
         waktu_selesai TEXT NOT NULL,
         FOREIGN KEY(kelas_id) REFERENCES kelas(id) ON DELETE CASCADE,
+        FOREIGN KEY(guru_id) REFERENCES pengguna(id) ON DELETE CASCADE
+      )
+    `);
+
+    // 9. Table Catatan Wali Kelas
+    await dbRun(`
+      CREATE TABLE IF NOT EXISTS catatan_walikelas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        siswa_nis TEXT,
+        kelas_id INTEGER,
+        guru_id INTEGER,
+        kategori TEXT DEFAULT 'Umum',
+        catatan TEXT NOT NULL,
+        tanggal TEXT NOT NULL,
+        FOREIGN KEY(siswa_nis) REFERENCES siswa(nis) ON DELETE CASCADE,
+        FOREIGN KEY(kelas_id) REFERENCES kelas(id) ON DELETE CASCADE,
+        FOREIGN KEY(guru_id) REFERENCES pengguna(id) ON DELETE CASCADE
+      )
+    `);
+
+    // 10. Table Surat BK
+    await dbRun(`
+      CREATE TABLE IF NOT EXISTS surat_bk (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        siswa_nis TEXT,
+        guru_id INTEGER,
+        jenis_surat TEXT NOT NULL,
+        tanggal TEXT NOT NULL,
+        keterangan TEXT NOT NULL,
+        status TEXT DEFAULT 'Tercetak',
+        FOREIGN KEY(siswa_nis) REFERENCES siswa(nis) ON DELETE CASCADE,
         FOREIGN KEY(guru_id) REFERENCES pengguna(id) ON DELETE CASCADE
       )
     `);
@@ -517,18 +567,86 @@ export async function initializeDatabase() {
     const adminCount = await dbGet<{ count: number }>('SELECT COUNT(*) as count FROM pengguna WHERE username = ?', ['admin']);
     const guruCount = await dbGet<{ count: number }>('SELECT COUNT(*) as count FROM pengguna WHERE username = ?', ['guru']);
     const ortuCount = await dbGet<{ count: number }>('SELECT COUNT(*) as count FROM pengguna WHERE username = ?', ['ortu']);
+    const bkUserCount = await dbGet<{ count: number }>('SELECT COUNT(*) as count FROM pengguna WHERE username = ?', ['bk']);
+    const kajurUserCount = await dbGet<{ count: number }>('SELECT COUNT(*) as count FROM pengguna WHERE username = ?', ['kajur']);
+    const kepsekUserCount = await dbGet<{ count: number }>('SELECT COUNT(*) as count FROM pengguna WHERE username = ?', ['kepsek']);
+
+    const defaultPass = bcrypt.hashSync('guru123', 10);
+    const parentPass = bcrypt.hashSync('ortu123', 10);
 
     if (adminCount?.count === 0) {
       const adminPass = bcrypt.hashSync(process.env.DEFAULT_ADMIN_PASSWORD || 'admin123', 10);
       await dbRun("INSERT INTO pengguna (username, password, nama, role) VALUES ('admin', ?, 'Administrator Utama', 'admin')", [adminPass]);
     }
     if (guruCount?.count === 0) {
-      const guruPass = bcrypt.hashSync(process.env.DEFAULT_GURU_PASSWORD || 'guru123', 10);
-      await dbRun("INSERT INTO pengguna (username, password, nama, role) VALUES ('guru', ?, 'Guru Pintar SMK Ibu', 'guru')", [guruPass]);
+      await dbRun("INSERT INTO pengguna (username, password, nama, role, nip, jabatan) VALUES ('guru', ?, 'Budi Santoso, S.Pd.', 'guru', '198402112009031002', 'Guru Matematika')", [defaultPass]);
     }
+    
+    // Tambahan Guru-guru lain untuk simulasi realistik banyak kelas dan mata pelajaran
+    const extraGurus = [
+      { username: 'guru2', nama: 'Siti Rahma, S.Pd.', role: 'guru', nip: '198805232014022003', jabatan: 'Guru DKV / Wali Kelas' },
+      { username: 'guru3', nama: 'Andi Wijaya, S.Kom.', role: 'guru', nip: '199211042019031005', jabatan: 'Guru RPL / Produktif' },
+      { username: 'guru4', nama: 'Dewi Lestari, M.Pd.', role: 'guru', nip: '198509152011012004', jabatan: 'Guru Akuntansi' },
+      { username: 'guru5', nama: 'Ahmad Farhan, S.Pd.', role: 'guru', nip: '199008222016021008', jabatan: 'Guru Bisnis Digital' },
+    ];
+    for (const g of extraGurus) {
+      const exists = await dbGet<{ count: number }>('SELECT COUNT(*) as count FROM pengguna WHERE username = ?', [g.username]);
+      if (exists?.count === 0) {
+        await dbRun("INSERT INTO pengguna (username, password, nama, role, nip, jabatan) VALUES (?, ?, ?, ?, ?, ?)", [g.username, defaultPass, g.nama, g.role, g.nip, g.jabatan]);
+      }
+    }
+
     if (ortuCount?.count === 0) {
-      const ortuPass = bcrypt.hashSync(process.env.DEFAULT_ORTU_PASSWORD || 'ortu123', 10);
-      await dbRun("INSERT INTO pengguna (username, password, nama, role, kelas_id) VALUES ('ortu', ?, 'Wali Murid Kelas X DKV 1', 'wali_murid', 1)", [ortuPass]);
+      await dbRun("INSERT INTO pengguna (username, password, nama, role, kelas_id) VALUES ('ortu', ?, 'Wali Murid Kelas X DKV 1', 'wali_murid', 1)", [parentPass]);
+    }
+
+    // Tambahan Wali Murid (Parents) lain untuk sinkronisasi monitoring
+    const extraParents = [
+      { username: 'ortu2', nama: 'Subagyo (Orang Tua Kevin)', role: 'wali_murid', kelas_id: 2 },
+      { username: 'ortu3', nama: 'Herianto (Orang Tua Clara)', role: 'wali_murid', kelas_id: 3 },
+      { username: 'ortu4', nama: 'Yusuf S. (Orang Tua Maudy)', role: 'wali_murid', kelas_id: 4 },
+      { username: 'ortu5', nama: 'Rudi Hermawan (Orang Tua Dimas)', role: 'wali_murid', kelas_id: 5 },
+    ];
+    for (const p of extraParents) {
+      const exists = await dbGet<{ count: number }>('SELECT COUNT(*) as count FROM pengguna WHERE username = ?', [p.username]);
+      if (exists?.count === 0) {
+        await dbRun("INSERT INTO pengguna (username, password, nama, role, kelas_id) VALUES (?, ?, ?, ?, ?)", [p.username, parentPass, p.nama, p.role, p.kelas_id]);
+      }
+    }
+    
+    // Add BK, Kajur, Kepsek users if they don't exist in the system (checked by username)
+    if (bkUserCount?.count === 0) {
+      const bkPass = bcrypt.hashSync('bk123', 10);
+      await dbRun("INSERT INTO pengguna (username, password, nama, role, nip, jabatan) VALUES ('bk', ?, 'Dra. Siska Putri, M.Psi', 'bk', '197906142005012001', 'Koordinator BK')", [bkPass]);
+    }
+    // Tambahan BK ke-2
+    const bk2Exists = await dbGet<{ count: number }>('SELECT COUNT(*) as count FROM pengguna WHERE username = ?', ['bk2']);
+    if (bk2Exists?.count === 0) {
+      const bkPass = bcrypt.hashSync('bk123', 10);
+      await dbRun("INSERT INTO pengguna (username, password, nama, role, nip, jabatan) VALUES ('bk2', ?, 'Rian Hidayat, S.Psi', 'bk', '198710182015041002', 'Staf Konselor BK')", [bkPass]);
+    }
+
+    if (kajurUserCount?.count === 0) {
+      const kajurPass = bcrypt.hashSync('kajur123', 10);
+      await dbRun("INSERT INTO pengguna (username, password, nama, role, jurusan, nip, jabatan) VALUES ('kajur', ?, 'Irwan Hermawan, M.Sn', 'kajur', 'Desain Komunikasi Visual', '197501022001031003', 'Kajur DKV')", [kajurPass]);
+    }
+    // Tambahan Kajur Jurusan lain agar fleksibel
+    const extraKajurs = [
+      { username: 'kajur_bd', nama: 'H. Mulyadi, M.M.', role: 'kajur', jurusan: 'Bisnis Digital', jabatan: 'Kajur Bisnis Digital' },
+      { username: 'kajur_ak', nama: 'Sri Wahyuni, S.E., Ak.', role: 'kajur', jurusan: 'Akuntansi', jabatan: 'Kajur Akuntansi' },
+      { username: 'kajur_rpl', nama: 'Ferry Astika, S.Kom., M.T.', role: 'kajur', jurusan: 'Rekayasa Perangkat Lunak', jabatan: 'Kajur RPL' },
+    ];
+    for (const kj of extraKajurs) {
+      const exists = await dbGet<{ count: number }>('SELECT COUNT(*) as count FROM pengguna WHERE username = ?', [kj.username]);
+      if (exists?.count === 0) {
+        const kajurPass = bcrypt.hashSync('kajur123', 10);
+        await dbRun("INSERT INTO pengguna (username, password, nama, role, jurusan, jabatan) VALUES (?, ?, ?, ?, ?, ?)", [kj.username, kajurPass, kj.nama, kj.role, kj.jurusan, kj.jabatan]);
+      }
+    }
+
+    if (kepsekUserCount?.count === 0) {
+      const kepsekPass = bcrypt.hashSync('kepsek123', 10);
+      await dbRun("INSERT INTO pengguna (username, password, nama, role, nip, jabatan) VALUES ('kepsek', ?, 'Dr. H. Ahmad Sunarto, M.Pd.', 'kepsek', '196803151992031005', 'Kepala Sekolah')", [kepsekPass]);
     }
 
     // Migrate any existing plaintext passwords inside the database
@@ -572,10 +690,23 @@ export async function initializeDatabase() {
       console.log('Penjelasan: Memulai proses seeding data dummy otomatis untuk mempermudah peninjauan fitur...');
       // === AKHIR DARI EVALUASI APP_ENV ===
       
-      const k1 = await dbRun("INSERT INTO kelas (nama_kelas, sekolah, walikelas_id) VALUES ('X DKV 1', 'SMK Ibu', 2)");
-      const k2 = await dbRun("INSERT INTO kelas (nama_kelas, sekolah, walikelas_id) VALUES ('XI DKV 1', 'SMK Ibu', 2)");
-      const k3 = await dbRun("INSERT INTO kelas (nama_kelas, sekolah, walikelas_id) VALUES ('XI BD 1', 'SMK Ibu', 2)");
-      const k4 = await dbRun("INSERT INTO kelas (nama_kelas, sekolah, walikelas_id) VALUES ('XII AK 1', 'SMK Ibu', 2)");
+      // Ambil ID dari guru-guru yang terdaftar secara dinamis untuk relasi Wali Kelas
+      const g1 = await dbGet<{ id: number }>("SELECT id FROM pengguna WHERE username = 'guru'");
+      const g2 = await dbGet<{ id: number }>("SELECT id FROM pengguna WHERE username = 'guru2'");
+      const g3 = await dbGet<{ id: number }>("SELECT id FROM pengguna WHERE username = 'guru3'");
+      const g4 = await dbGet<{ id: number }>("SELECT id FROM pengguna WHERE username = 'guru4'");
+      const g5 = await dbGet<{ id: number }>("SELECT id FROM pengguna WHERE username = 'guru5'");
+
+      const idGuru1 = g1 ? g1.id : 2;
+      const idGuru2 = g2 ? g2.id : (g1 ? g1.id : 2);
+      const idGuru3 = g3 ? g3.id : (g1 ? g1.id : 2);
+      const idGuru4 = g4 ? g4.id : (g1 ? g1.id : 2);
+      const idGuru5 = g5 ? g5.id : (g1 ? g1.id : 2);
+
+      const k1 = await dbRun("INSERT INTO kelas (nama_kelas, sekolah, walikelas_id, jurusan) VALUES ('X DKV 1', 'SMK Ibu', ?, 'DKV')", [idGuru1]);
+      const k2 = await dbRun("INSERT INTO kelas (nama_kelas, sekolah, walikelas_id, jurusan) VALUES ('XI DKV 1', 'SMK Ibu', ?, 'DKV')", [idGuru2]);
+      const k3 = await dbRun("INSERT INTO kelas (nama_kelas, sekolah, walikelas_id, jurusan) VALUES ('XI BD 1', 'SMK Ibu', ?, 'BD')", [idGuru3]);
+      const k4 = await dbRun("INSERT INTO kelas (nama_kelas, sekolah, walikelas_id, jurusan) VALUES ('XII AK 1', 'SMK Ibu', ?, 'AK')", [idGuru4]);
 
       const classIds = [k1.id, k2.id, k3.id, k4.id];
 
@@ -653,20 +784,36 @@ export async function initializeDatabase() {
         );
       }
 
-      // Insert Schedules (Jadwal) - Mata Pelajaran masing-masing Jurusan
+      // Insert Schedules (Jadwal) - Mata Pelajaran masing-masing Jurusan secara dinamis menggunakan ID Guru real
       // 1. DKV: Gambar Sketsa, Dasar-Dasar DKV, Desain Grafis Percetakan, Fotografi & Videografi
-      await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, 2, 'Dasar-Dasar DKV', 'Senin', '07:30', '09:00')", [k1.id]);
-      await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, 2, 'Gambar Sketsa & Ilustrasi', 'Rabu', '09:30', '11:00')", [k1.id]);
-      await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, 2, 'Desain Grafis Percetakan', 'Selasa', '08:00', '10:00')", [k2.id]);
-      await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, 2, 'Fotografi & Videografi', 'Kamis', '08:00', '10:30')", [k2.id]);
+      await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Dasar-Dasar DKV', 'Senin', '07:30', '09:00')", [k1.id, idGuru2]);
+      await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Gambar Sketsa & Ilustrasi', 'Rabu', '09:30', '11:00')", [k1.id, idGuru2]);
+      await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Sejarah Seni Rupa', 'Senin', '09:30', '11:30')", [k1.id, idGuru1]);
+      await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Komposisi Desain', 'Selasa', '07:30', '09:30')", [k1.id, idGuru2]);
+      await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Matematika Terapan', 'Kamis', '07:30', '09:30')", [k1.id, idGuru1]);
+      await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Bahasa Inggris Komunikasi', 'Jumat', '09:00', '11:00')", [k1.id, idGuru1]);
+
+      await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Desain Grafis Percetakan', 'Selasa', '08:00', '10:00')", [k2.id, idGuru2]);
+      await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Fotografi & Videografi', 'Kamis', '08:00', '10:30')", [k2.id, idGuru2]);
+      await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Animasi 2D & 3D', 'Senin', '08:00', '10:30')", [k2.id, idGuru2]);
+      await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Tipografi Aplikatif', 'Rabu', '10:00', '12:00')", [k2.id, idGuru2]);
+      await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Kewirausahaan Kreatif', 'Kamis', '11:00', '13:00')", [k2.id, idGuru5]);
       
       // 2. Bisnis Digital (BD): Digital Marketing & SEO, E-Commerce & Marketplace
-      await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, 2, 'Digital Marketing & SEO', 'Kamis', '10:45', '12:45')", [k3.id]);
-      await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, 2, 'E-Commerce & Marketplace', 'Jumat', '08:00', '10:00')", [k3.id]);
+      await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Digital Marketing & SEO', 'Kamis', '10:45', '12:45')", [k3.id, idGuru5]);
+      await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'E-Commerce & Marketplace', 'Jumat', '08:00', '10:00')", [k3.id, idGuru5]);
+      await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Analisis Data Pasar', 'Senin', '10:00', '12:30')", [k3.id, idGuru5]);
+      await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Copywriting untuk Promosi', 'Selasa', '09:00', '11:30')", [k3.id, idGuru5]);
+      await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Matematika Bisnis', 'Rabu', '08:00', '10:00')", [k3.id, idGuru1]);
       
       // 3. Akuntansi (AK): Akuntansi Keuangan, Spreadsheet Keuangan
-      await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, 2, 'Akuntansi Keuangan', 'Senin', '09:30', '12:00')", [k4.id]);
-      await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, 2, 'Spreadsheet Keuangan', 'Jumat', '08:00', '10:30')", [k4.id]);
+      await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Akuntansi Keuangan', 'Senin', '09:30', '12:00')", [k4.id, idGuru4]);
+      await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Spreadsheet Keuangan', 'Jumat', '08:00', '10:30')", [k4.id, idGuru4]);
+      await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Praktikum Akuntansi Lembaga', 'Selasa', '10:30', '13:00')", [k4.id, idGuru4]);
+      await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Perpajakan Indonesia', 'Rabu', '09:00', '11:30')", [k4.id, idGuru4]);
+      await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Etika Profesi Akuntan', 'Kamis', '08:00', '10:00')", [k4.id, idGuru4]);
+
+
 
       // Seed Attendance (Absensi) - 5 separate dates for high-density historical analytics
       const workDates = ['2026-06-08', '2026-06-09', '2026-06-10', '2026-06-11', '2026-06-12'];
@@ -786,6 +933,57 @@ export async function initializeDatabase() {
         await dbRun("UPDATE kelas SET walikelas_id = ? WHERE walikelas_id IS NULL OR walikelas_id = '' OR walikelas_id = 0", [defaultGuru.id]);
       }
       await dbRun("UPDATE pengguna SET nama = 'Wali Murid Kelas X DKV 1', kelas_id = 1 WHERE username = 'ortu'");
+
+      // Migrasi Aktif Jadwal Dummy Tambahan: Jika jumlah jadwal kurang dari 15, masukkan jadwal baru secara dinamis
+      const schedCount = await dbGet<{ count: number }>("SELECT COUNT(*) as count FROM jadwal");
+      if (schedCount && schedCount.count < 15) {
+        console.log('Menambahkan jadwal dummy tambahan secara otomatis...');
+        const classes = await dbAll<{ id: number; nama_kelas: string }>("SELECT id, nama_kelas FROM kelas");
+        const g1 = await dbGet<{ id: number }>("SELECT id FROM pengguna WHERE username = 'guru'");
+        const g2 = await dbGet<{ id: number }>("SELECT id FROM pengguna WHERE username = 'guru2'");
+        const g3 = await dbGet<{ id: number }>("SELECT id FROM pengguna WHERE username = 'guru3'");
+        const g4 = await dbGet<{ id: number }>("SELECT id FROM pengguna WHERE username = 'guru4'");
+        const g5 = await dbGet<{ id: number }>("SELECT id FROM pengguna WHERE username = 'guru5'");
+
+        const idG1 = g1?.id || 2;
+        const idG2 = g2?.id || idG1;
+        const idG3 = g3?.id || idG1;
+        const idG4 = g4?.id || idG1;
+        const idG5 = g5?.id || idG1;
+
+        // Kosongkan dulu jadwal jika hanya sedikit untuk mencegah duplikasi sebelum melakukan penambahan massal
+        await dbRun("DELETE FROM jadwal");
+
+        for (const k of classes) {
+          if (k.nama_kelas.includes('DKV 1') && k.nama_kelas.startsWith('X')) {
+            await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Dasar-Dasar DKV', 'Senin', '07:30', '09:00')", [k.id, idG2]);
+            await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Gambar Sketsa & Ilustrasi', 'Rabu', '09:30', '11:00')", [k.id, idG2]);
+            await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Sejarah Seni Rupa', 'Senin', '09:30', '11:30')", [k.id, idG1]);
+            await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Komposisi Desain', 'Selasa', '07:30', '09:30')", [k.id, idG2]);
+            await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Matematika Terapan', 'Kamis', '07:30', '09:30')", [k.id, idG1]);
+            await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Bahasa Inggris Komunikasi', 'Jumat', '09:00', '11:00')", [k.id, idG1]);
+          } else if (k.nama_kelas.includes('DKV 1') && k.nama_kelas.startsWith('XI')) {
+            await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Desain Grafis Percetakan', 'Selasa', '08:00', '10:00')", [k.id, idG2]);
+            await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Fotografi & Videografi', 'Kamis', '08:00', '10:30')", [k.id, idG2]);
+            await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Animasi 2D & 3D', 'Senin', '08:00', '10:30')", [k.id, idG2]);
+            await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Tipografi Aplikatif', 'Rabu', '10:00', '12:00')", [k.id, idG2]);
+            await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Kewirausahaan Kreatif', 'Kamis', '11:00', '13:00')", [k.id, idG5]);
+          } else if (k.nama_kelas.includes('BD')) {
+            await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Digital Marketing & SEO', 'Kamis', '10:45', '12:45')", [k.id, idG5]);
+            await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'E-Commerce & Marketplace', 'Jumat', '08:00', '10:00')", [k.id, idG5]);
+            await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Analisis Data Pasar', 'Senin', '10:00', '12:30')", [k.id, idG5]);
+            await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Copywriting untuk Promosi', 'Selasa', '09:00', '11:30')", [k.id, idG5]);
+            await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Matematika Bisnis', 'Rabu', '08:00', '10:00')", [k.id, idG1]);
+          } else if (k.nama_kelas.includes('AK')) {
+            await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Akuntansi Keuangan', 'Senin', '09:30', '12:00')", [k.id, idG4]);
+            await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Spreadsheet Keuangan', 'Jumat', '08:00', '10:30')", [k.id, idG4]);
+            await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Praktikum Akuntansi Lembaga', 'Selasa', '10:30', '13:00')", [k.id, idG4]);
+            await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Perpajakan Indonesia', 'Rabu', '09:00', '11:30')", [k.id, idG4]);
+            await dbRun("INSERT INTO jadwal (kelas_id, guru_id, mata_pelajaran, hari, waktu_mulai, waktu_selesai) VALUES (?, ?, 'Etika Profesi Akuntan', 'Kamis', '08:00', '10:00')", [k.id, idG4]);
+          }
+        }
+        console.log('Jadwal dummy tambahan sukses dimasukkan secara dinamis!');
+      }
     } catch (migError) {
       console.error('Defensive repair migration failed:', migError);
     }

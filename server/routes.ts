@@ -41,6 +41,27 @@ const sessionOptions = {
 // query (tanda `?`) untuk mencegah bahaya SQL Injection!
 // ============================================================================
 
+// ============================================================================
+// HELPER: Normalisasi Tanggal Global (Layer API)
+// Maksud Bisnis: Memastikan semua tanggal yang disimpan ke database atau dikembalikan 
+//   ke klien mengikuti satu format standar ISO-8601 atau YYYY-MM-DD.
+// ============================================================================
+export function formatDateISO(dateInput?: string | Date | number): string {
+  const d = dateInput ? new Date(dateInput) : new Date();
+  if (isNaN(d.getTime())) {
+    return new Date().toISOString();
+  }
+  return d.toISOString();
+}
+
+export function formatDateYYYYMMDD(dateInput?: string | Date | number): string {
+  const d = dateInput ? new Date(dateInput) : new Date();
+  if (isNaN(d.getTime())) {
+    return new Date().toISOString().split('T')[0];
+  }
+  return d.toISOString().split('T')[0];
+}
+
 const router = Router();
 
 const schoolIdentityPath = path.resolve(process.cwd(), 'school_identity.json');
@@ -186,15 +207,92 @@ const protectedPaths = [
 protectedPaths.forEach(path => router.use(path, authenticateSession));
 
 
-// 1. Get List of Kelas
+// ============================================================================
+// HELPER: Verifikasi Akses Kelas untuk Guru (SiGup)
+// Maksud Bisnis: Membatasi hak pengelolaan absensi, nilai, statistik kelas, 
+//   dan rekap agar hanya berlaku bagi guru yang mengajar di kelas tertentu 
+//   yang sudah dijadwalkan di jadwal pelajaran, atau dia adalah Wali Kelas dari kelas tersebut.
+// Input: req (Express Request), res (Express Response), kelasId (ID Kelas target)
+// Output: Promise<boolean> (Mengirim response 403 jika ditolak dan mengembalikan false, true jika berhak)
+// ============================================================================
+export async function verifyGuruClassAccess(req: any, res: any, kelasId: number | string): Promise<boolean> {
+  const user = req.user;
+  if (!user) {
+    res.status(401).json({ error: 'Akses ditolak: Sesi tidak valid.' });
+    return false;
+  }
+
+  // Admin memiliki hak akses penuh ke seluruh kelas
+  if (user.role === 'admin') {
+    return true;
+  }
+
+  if (user.role === 'guru' || user.role === 'kajur' || user.role === 'kepsek') {
+    // 1. Periksa apakah user tersebut memiliki jadwal mengajar di kelas ini sesuai dengan tabel jadwal pelajaran
+    const hasJadwal = await dbGet<{ id: number }>(
+      'SELECT id FROM jadwal WHERE guru_id = ? AND kelas_id = ? LIMIT 1',
+      [user.id, kelasId]
+    );
+    if (hasJadwal) return true;
+
+    // Jika tidak mengajar, tolak akses secara ketat demi keamanan data
+    res.status(403).json({ error: 'Akses ditolak: Fitur absensi, nilai, statistik kelas, dan rekap hanya berlaku untuk guru/pengajar di kelas ini sesuai jadwal pelajaran.' });
+    return false;
+  }
+
+  // Wali murid hanya boleh melihat kelas dari siswa yang diasuhnya
+  if (user.role === 'wali_murid') {
+    const parent = await dbGet<{ kelas_id: number }>('SELECT kelas_id FROM pengguna WHERE id = ?', [user.id]);
+    if (parent && String(parent.kelas_id) === String(kelasId)) {
+      return true;
+    }
+    res.status(403).json({ error: 'Akses ditolak: Anda tidak memiliki wewenang untuk melihat kelas ini.' });
+    return false;
+  }
+
+  res.status(403).json({ error: 'Akses ditolak: Peran Anda tidak diizinkan mengakses data kelas ini.' });
+  return false;
+}
+// === AKHIR DARI HELPER VERIFIKASI AKSES GURU ===
+
+
+// 1. Get List of Kelas (Terfilter otomatis berdasarkan otorisasi peran guru aktif)
 router.get('/kelas', async (req, res) => {
   try {
-    const classes = await dbAll(`
-      SELECT k.*, p.nama AS nama_walikelas, p.username AS username_walikelas
-      FROM kelas k
-      LEFT JOIN pengguna p ON k.walikelas_id = p.id
-      ORDER BY k.nama_kelas ASC
-    `);
+    const user = (req as any).user;
+    let classes;
+    
+    // Aliran Data: Jika peran pengguna adalah guru, filter kelas agar hanya memuat kelas yang diajar atau diwakili olehnya saja
+    if (user && user.role === 'guru') {
+      classes = await dbAll(`
+        SELECT k.*, p.nama AS nama_walikelas, p.username AS username_walikelas,
+        (CASE WHEN k.id IN (SELECT DISTINCT kelas_id FROM jadwal WHERE guru_id = ?) THEN 1 ELSE 0 END) AS is_mengajar
+        FROM kelas k
+        LEFT JOIN pengguna p ON k.walikelas_id = p.id
+        WHERE k.walikelas_id = ? OR k.id IN (SELECT DISTINCT kelas_id FROM jadwal WHERE guru_id = ?)
+        ORDER BY k.nama_kelas ASC
+      `, [user.id, user.id, user.id]);
+    } else if (user && user.role === 'wali_murid') {
+      // Wali murid hanya melihat kelas asuhannya
+      const parent = await dbGet<{ kelas_id: number }>('SELECT kelas_id FROM pengguna WHERE id = ?', [user.id]);
+      const classId = parent?.kelas_id || 0;
+      classes = await dbAll(`
+        SELECT k.*, p.nama AS nama_walikelas, p.username AS username_walikelas
+        FROM kelas k
+        LEFT JOIN pengguna p ON k.walikelas_id = p.id
+        WHERE k.id = ?
+        ORDER BY k.nama_kelas ASC
+      `, [classId]);
+    } else {
+      // Peran lain (Admin/Kepsek/Kajur) dapat melihat seluruh kelas secara komprehensif
+      classes = await dbAll(`
+        SELECT k.*, p.nama AS nama_walikelas, p.username AS username_walikelas,
+        (CASE WHEN k.id IN (SELECT DISTINCT kelas_id FROM jadwal WHERE guru_id = ?) THEN 1 ELSE 0 END) AS is_mengajar
+        FROM kelas k
+        LEFT JOIN pengguna p ON k.walikelas_id = p.id
+        ORDER BY k.nama_kelas ASC
+      `, [user.id]);
+    }
     res.json(classes);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -299,7 +397,7 @@ router.get('/siswa-profile/:nis', async (req, res) => {
     
     // 1. Ambil data dasar siswa beserta kelasnya
     const siswa = await dbGet(`
-      SELECT s.*, k.nama_kelas, k.sekolah 
+      SELECT s.*, k.nama_kelas, k.sekolah, k.jurusan 
       FROM siswa s
       LEFT JOIN kelas k ON s.kelas_id = k.id
       WHERE s.nis = ?
@@ -344,6 +442,11 @@ router.get('/siswa-profile/:nis', async (req, res) => {
 router.get('/siswa/:kelas_id', async (req, res) => {
   try {
     const { kelas_id } = req.params;
+    
+    // Verifikasi hak akses guru terhadap kelas ini berdasarkan jadwal pelajaran
+    const hasAccess = await verifyGuruClassAccess(req, res, kelas_id);
+    if (!hasAccess) return;
+
     const students = await dbAll('SELECT * FROM siswa WHERE kelas_id = ? ORDER BY nama ASC', [kelas_id]);
     res.json(students);
   } catch (error: any) {
@@ -620,6 +723,10 @@ router.post('/absensi', async (req, res) => {
       return res.status(400).json({ error: 'Data absensi tidak lengkap (kelas_id, tanggal, records required)' });
     }
 
+    // Verifikasi hak akses guru pengajar berdasarkan jadwal pelajaran
+    const hasAccess = await verifyGuruClassAccess(req, res, kelas_id);
+    if (!hasAccess) return;
+
     const normalizedTanggal = tanggal.replace(/-/g, '/');
 
     // 1. Check or insert Absensi record
@@ -635,7 +742,7 @@ router.post('/absensi', async (req, res) => {
 
     // 2. Insert or update student statuses
     for (const rec of records) {
-      const timestamp = rec.updated_at || new Date().toISOString();
+      const timestamp = rec.updated_at || formatDateISO();
       await dbRun(`
         INSERT OR REPLACE INTO detail_absensi (absensi_id, siswa_nis, status, updated_at)
         VALUES (?, ?, ?, ?)
@@ -652,6 +759,11 @@ router.post('/absensi', async (req, res) => {
 router.get('/absensi-history/:kelas_id', async (req, res) => {
   try {
     const { kelas_id } = req.params;
+
+    // Verifikasi hak akses guru pengajar berdasarkan jadwal pelajaran
+    const hasAccess = await verifyGuruClassAccess(req, res, kelas_id);
+    if (!hasAccess) return;
+
     const history = await dbAll(`
       SELECT a.id, a.tanggal, a.is_approved_by_walikelas,
              COUNT(CASE WHEN da.status = 'Hadir' THEN 1 END) as count_hadir,
@@ -680,7 +792,7 @@ router.post('/walikelas/absensi', async (req, res) => {
     }
 
     const numericKelasId = Number(kelas_id);
-    const timestamp = new Date().toISOString();
+    const timestamp = formatDateISO();
     const normalizedTanggal = tanggal.replace(/-/g, '/');
 
     // 1. Check or insert Absensi record
@@ -712,6 +824,16 @@ router.post('/walikelas/absensi', async (req, res) => {
 router.get('/absensi-detail/:absensi_id', async (req, res) => {
   try {
     const { absensi_id } = req.params;
+
+    // Ambil kelas_id dari sesi absensi ini untuk verifikasi hak akses guru
+    const abs = await dbGet<{ kelas_id: number }>('SELECT kelas_id FROM absensi WHERE id = ?', [absensi_id]);
+    if (!abs) {
+      return res.status(404).json({ error: 'Data absensi tidak ditemukan' });
+    }
+
+    const hasAccess = await verifyGuruClassAccess(req, res, abs.kelas_id);
+    if (!hasAccess) return;
+
     const details = await dbAll(`
       SELECT da.id, da.siswa_nis, s.nama, s.jenis_kelamin, da.status, da.updated_at
       FROM detail_absensi da
@@ -733,6 +855,10 @@ router.post('/nilai', async (req, res) => {
     if (!kelas_id || !nama_aktivitas || !tanggal || !records || !Array.isArray(records)) {
       return res.status(400).json({ error: 'Data nilai tidak lengkap' });
     }
+
+    // Verifikasi hak akses guru pengajar berdasarkan jadwal pelajaran
+    const hasAccess = await verifyGuruClassAccess(req, res, kelas_id);
+    if (!hasAccess) return;
 
     const normalizedTanggal = tanggal.replace(/-/g, '/');
     const manualKkm = typeof kkm === 'number' ? kkm : parseFloat(kkm) || 75;
@@ -772,6 +898,15 @@ router.put('/nilai/:aktivitas_id', async (req, res) => {
       return res.status(400).json({ error: 'Data rincian nilai tidak lengkap (records required)' });
     }
 
+    // Ambil kelas_id aktivitas ini untuk verifikasi hak akses guru
+    const act = await dbGet<{ kelas_id: number }>('SELECT kelas_id FROM aktivitas_nilai WHERE id = ?', [aktivitas_id]);
+    if (!act) {
+      return res.status(404).json({ error: 'Aktivitas nilai tidak ditemukan' });
+    }
+
+    const hasAccess = await verifyGuruClassAccess(req, res, act.kelas_id);
+    if (!hasAccess) return;
+
     const normalizedTanggal = tanggal ? tanggal.replace(/-/g, '/') : '';
     const manualKkm = typeof kkm === 'number' ? kkm : parseFloat(kkm) || 75;
 
@@ -802,6 +937,11 @@ router.put('/nilai/:aktivitas_id', async (req, res) => {
 router.get('/nilai-history/:kelas_id', async (req, res) => {
   try {
     const { kelas_id } = req.params;
+
+    // Verifikasi hak akses guru pengajar berdasarkan jadwal pelajaran
+    const hasAccess = await verifyGuruClassAccess(req, res, kelas_id);
+    if (!hasAccess) return;
+
     const history = await dbAll(`
       SELECT an.id, an.nama_aktivitas, an.tanggal, COALESCE(an.kkm, 75) as kkm,
              ROUND(AVG(dn.nilai), 1) as rata_rata,
@@ -823,6 +963,16 @@ router.get('/nilai-history/:kelas_id', async (req, res) => {
 router.get('/nilai-detail/:aktivitas_id', async (req, res) => {
   try {
     const { aktivitas_id } = req.params;
+
+    // Ambil kelas_id aktivitas ini untuk verifikasi hak akses guru
+    const act = await dbGet<{ kelas_id: number }>('SELECT kelas_id FROM aktivitas_nilai WHERE id = ?', [aktivitas_id]);
+    if (!act) {
+      return res.status(404).json({ error: 'Aktivitas nilai tidak ditemukan' });
+    }
+
+    const hasAccess = await verifyGuruClassAccess(req, res, act.kelas_id);
+    if (!hasAccess) return;
+
     const details = await dbAll(`
       SELECT dn.id, dn.siswa_nis, s.nama, s.jenis_kelamin, dn.nilai, dn.catatan, COALESCE(an.kkm, 75) as kkm
       FROM detail_nilai dn
@@ -843,14 +993,31 @@ router.get('/stats', async (req, res) => {
     const { guru_id, role } = req.query;
 
     let classIds: number[] = [];
+    
+    // Aliran Data: Penyaringan akses kelas (classIds) berdasarkan role pengguna aktif
     if (role === 'guru' && guru_id) {
       const rows = await dbAll<{ kelas_id: number }>(
         'SELECT DISTINCT kelas_id FROM jadwal WHERE guru_id = ?',
         [Number(guru_id)]
       );
       classIds = rows.map(r => r.kelas_id);
+    } else if (role === 'kajur' && guru_id) {
+      // Kepala Jurusan: hanya melihat kelas yang sesuai dengan jurusan yang diampunya
+      const user = await dbGet<{ jurusan: string }>('SELECT jurusan FROM pengguna WHERE id = ?', [Number(guru_id)]);
+      const jur = user?.jurusan || '';
+      const rows = await dbAll<{ id: number }>(
+        'SELECT id FROM kelas WHERE jurusan = ? OR nama_kelas LIKE ? OR nama_kelas LIKE ?',
+        [jur, `%${jur}%`, `%${jur.split(' ').map(w => w[0]).join('')}%`]
+      );
+      classIds = rows.map(r => r.id);
+    } else if (role === 'wali_murid' && guru_id) {
+      // Wali Murid: hanya melihat kelas tempat anaknya berada
+      const user = await dbGet<{ kelas_id: number }>('SELECT kelas_id FROM pengguna WHERE id = ?', [Number(guru_id)]);
+      if (user && user.kelas_id) {
+        classIds = [user.kelas_id];
+      }
     } else {
-      // For admin or default, get all classes
+      // Admin, Kepala Sekolah (kepsek), Bimbingan Konseling (bk): berhak melihat semua kelas terdaftar
       const rows = await dbAll<{ id: number }>('SELECT id FROM kelas');
       classIds = rows.map(r => r.id);
     }
@@ -1005,7 +1172,23 @@ router.get('/stats/students', async (req, res) => {
         [Number(guru_id)]
       );
       classIds = rows.map(r => r.kelas_id);
+    } else if (role === 'kajur' && guru_id) {
+      // Kepala Jurusan: hanya melihat daftar siswa dari jurusan yang diampunya
+      const user = await dbGet<{ jurusan: string }>('SELECT jurusan FROM pengguna WHERE id = ?', [Number(guru_id)]);
+      const jur = user?.jurusan || '';
+      const rows = await dbAll<{ id: number }>(
+        'SELECT id FROM kelas WHERE jurusan = ? OR nama_kelas LIKE ? OR nama_kelas LIKE ?',
+        [jur, `%${jur}%`, `%${jur.split(' ').map(w => w[0]).join('')}%`]
+      );
+      classIds = rows.map(r => r.id);
+    } else if (role === 'wali_murid' && guru_id) {
+      // Wali Murid: hanya melihat daftar siswa dari kelas tempat anaknya berada
+      const user = await dbGet<{ kelas_id: number }>('SELECT kelas_id FROM pengguna WHERE id = ?', [Number(guru_id)]);
+      if (user && user.kelas_id) {
+        classIds = [user.kelas_id];
+      }
     } else {
+      // Admin, Kepala Sekolah (kepsek), Bimbingan Konseling (bk): berhak melihat semua kelas terdaftar
       const rows = await dbAll<{ id: number }>('SELECT id FROM kelas');
       classIds = rows.map(r => r.id);
     }
@@ -1117,6 +1300,10 @@ router.get('/class-stats/:class_id', async (req, res) => {
   try {
     const { class_id } = req.params;
     
+    // Verifikasi hak akses guru pengajar berdasarkan jadwal pelajaran
+    const hasAccess = await verifyGuruClassAccess(req, res, class_id);
+    if (!hasAccess) return;
+    
     const rows = await dbAll<{
       nis: string;
       nama: string;
@@ -1158,6 +1345,10 @@ router.get('/class-stats/:class_id', async (req, res) => {
 router.get('/rekap/absensi/:kelas_id', async (req, res) => {
   try {
     const { kelas_id } = req.params;
+    
+    // Verifikasi hak akses guru pengajar berdasarkan jadwal pelajaran
+    const hasAccess = await verifyGuruClassAccess(req, res, kelas_id);
+    if (!hasAccess) return;
     
     // 1. Get dates
     const datesRows = await dbAll<{ tanggal: string }>(
@@ -1226,6 +1417,10 @@ router.get('/rekap/absensi/:kelas_id', async (req, res) => {
 router.get('/rekap/nilai/:kelas_id', async (req, res) => {
   try {
     const { kelas_id } = req.params;
+
+    // Verifikasi hak akses guru pengajar berdasarkan jadwal pelajaran
+    const hasAccess = await verifyGuruClassAccess(req, res, kelas_id);
+    if (!hasAccess) return;
 
     // 1. Get grading activities
     const activities = await dbAll<{ id: number; nama_aktivitas: string; tanggal: string; kkm: number }>(
@@ -1493,7 +1688,7 @@ router.get('/admin/summary', async (req, res) => {
 router.get('/admin/users', async (req, res) => {
   try {
     const users = await dbAll(`
-      SELECT p.id, p.username, p.nama, p.role, p.kelas_id, k.nama_kelas
+      SELECT p.id, p.username, p.nama, p.role, p.kelas_id, p.jurusan, p.nip, p.jabatan, p.is_cuti, k.nama_kelas
       FROM pengguna p
       LEFT JOIN kelas k ON p.kelas_id = k.id
       ORDER BY p.role DESC, p.nama ASC
@@ -1507,7 +1702,7 @@ router.get('/admin/users', async (req, res) => {
 // 18. Admin: Create a new user account
 router.post('/admin/users', async (req, res) => {
   try {
-    const { username, password, nama, role, kelas_id } = req.body;
+    const { username, password, nama, role, kelas_id, jurusan, is_cuti, nip, jabatan } = req.body;
     if (!username || !password || !nama || !role) {
       return res.status(400).json({ error: 'Semua kolom wajib diisi' });
     }
@@ -1515,12 +1710,19 @@ router.post('/admin/users', async (req, res) => {
     if (exists) {
       return res.status(400).json({ error: 'Username sudah digunakan oleh akun lain' });
     }
+
+    // Maksud Bisnis: Memastikan aturan Kepala Sekolah hanya boleh ditunjuk untuk 1 guru saja secara real-time.
+    // Aliran Data: Jika role baru adalah 'kepsek', demote akun kepsek lama menjadi 'guru'.
+    if (role === 'kepsek') {
+      await dbRun("UPDATE pengguna SET role = 'guru' WHERE role = 'kepsek'");
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const result = await dbRun(
-      'INSERT INTO pengguna (username, password, nama, role, kelas_id) VALUES (?, ?, ?, ?, ?)',
-      [username.trim().toLowerCase(), hashedPassword, nama.trim(), role, kelas_id || null]
+      'INSERT INTO pengguna (username, password, nama, role, kelas_id, jurusan, is_cuti, nip, jabatan) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [username.trim().toLowerCase(), hashedPassword, nama.trim(), role, kelas_id || null, jurusan || '', is_cuti ? 1 : 0, nip || '', jabatan || '']
     );
-    res.json({ id: result.id, username: username.trim().toLowerCase(), nama, role, kelas_id: kelas_id || null, message: 'Pengguna berhasil dibuat' });
+    res.json({ id: result.id, username: username.trim().toLowerCase(), nama, role, kelas_id: kelas_id || null, jurusan: jurusan || '', message: 'Pengguna berhasil dibuat' });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -1530,7 +1732,7 @@ router.post('/admin/users', async (req, res) => {
 router.put('/admin/users/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { username, password, nama, role, kelas_id } = req.body;
+    const { username, password, nama, role, kelas_id, jurusan, is_cuti, nip, jabatan } = req.body;
     if (!username || !nama || !role) {
       return res.status(400).json({ error: 'Username, Nama, dan Role wajib diisi' });
     }
@@ -1539,16 +1741,22 @@ router.put('/admin/users/:id', async (req, res) => {
       return res.status(400).json({ error: 'Username sudah digunakan oleh akun lain' });
     }
     
+    // Maksud Bisnis: Memastikan aturan Kepala Sekolah hanya boleh ditunjuk untuk 1 guru saja secara real-time saat update.
+    // Aliran Data: Jika role diubah menjadi 'kepsek', demote akun kepsek lama yang ber-ID lain menjadi 'guru'.
+    if (role === 'kepsek') {
+      await dbRun("UPDATE pengguna SET role = 'guru' WHERE role = 'kepsek' AND id != ?", [id]);
+    }
+
     if (password && password.trim()) {
       const hashedPassword = await bcrypt.hash(password, 10);
       await dbRun(
-        'UPDATE pengguna SET username = ?, password = ?, nama = ?, role = ?, kelas_id = ? WHERE id = ?',
-        [username.trim().toLowerCase(), hashedPassword, nama.trim(), role, kelas_id || null, id]
+        'UPDATE pengguna SET username = ?, password = ?, nama = ?, role = ?, kelas_id = ?, jurusan = ?, is_cuti = ?, nip = ?, jabatan = ? WHERE id = ?',
+        [username.trim().toLowerCase(), hashedPassword, nama.trim(), role, kelas_id || null, jurusan || '', is_cuti ? 1 : 0, nip || '', jabatan || '', id]
       );
     } else {
       await dbRun(
-        'UPDATE pengguna SET username = ?, nama = ?, role = ?, kelas_id = ? WHERE id = ?',
-        [username.trim().toLowerCase(), nama.trim(), role, kelas_id || null, id]
+        'UPDATE pengguna SET username = ?, nama = ?, role = ?, kelas_id = ?, jurusan = ?, is_cuti = ?, nip = ?, jabatan = ? WHERE id = ?',
+        [username.trim().toLowerCase(), nama.trim(), role, kelas_id || null, jurusan || '', is_cuti ? 1 : 0, nip || '', jabatan || '', id]
       );
     }
     res.json({ message: 'Pengguna berhasil diperbarui' });
@@ -1631,6 +1839,8 @@ router.post('/admin/graduate-siswa', async (req, res) => {
 //   dan mengembalikan pesan sukses yang dinamis sesuai dengan nilai APP_ENV saat ini (apakah di-seeding ulang atau dibiarkan bersih).
 router.post('/admin/reset-db', async (req, res) => {
   try {
+    await dbRun('DROP TABLE IF EXISTS catatan_walikelas');
+    await dbRun('DROP TABLE IF EXISTS surat_bk');
     await dbRun('DROP TABLE IF EXISTS detail_absensi');
     await dbRun('DROP TABLE IF EXISTS absensi');
     await dbRun('DROP TABLE IF EXISTS detail_nilai');
@@ -1654,6 +1864,7 @@ router.post('/admin/reset-db', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
 // === AKHIR DARI LOGIKA RESET DATABASE ===
 
 // 22. Jadwal: Get all schedules
@@ -1915,7 +2126,7 @@ router.post('/patches/apply', async (req, res) => {
       }
     }
 
-    const timestamp = new Date().toISOString();
+    const timestamp = formatDateISO();
     // Simpan status patch di database agar persisten
     await dbRun(
       'INSERT OR REPLACE INTO patches (id, nama_patch, deskripsi, kategori, status, applied_at, sql_statements) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -2022,7 +2233,7 @@ router.get('/system/diagnostics', async (req, res) => {
 
     res.json({
       score,
-      scanned_at: new Date().toISOString(),
+      scanned_at: formatDateISO(),
       checks
     });
   } catch (err: any) {
@@ -2050,7 +2261,7 @@ router.get('/system/backup', async (req, res) => {
       }
     }
     
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const timestamp = formatDateISO().replace(/[:.]/g, '-');
     const filename = `backup_db_smk_${timestamp}.json`;
     
     res.setHeader('Content-disposition', `attachment; filename=${filename}`);
@@ -2090,12 +2301,12 @@ router.post('/codebase/check', async (req, res) => {
     let modifiedCount = 0;
     let unchangedCount = 0;
 
-    for (const [relativePath, zipEntry] of Object.entries(loadedZip.files)) {
-      if (zipEntry.dir) continue;
+    const validEntries = Object.entries(loadedZip.files).filter(([relativePath, zipEntry]) => {
+      if (zipEntry.dir) return false;
 
       // Abaikan berkas metadata sistem operasi atau file tersembunyi
       if (relativePath.includes('__MACOSX') || relativePath.split('/').pop()?.startsWith('.')) {
-        continue;
+        return false;
       }
 
       // Abaikan direktori dependensi, keluaran build, berkas database lokal, dan lingkungan (.env)
@@ -2106,9 +2317,13 @@ router.post('/codebase/check', async (req, res) => {
         relativePath.includes('database.sqlite') ||
         relativePath.endsWith('.env')
       ) {
-        continue;
+        return false;
       }
+      return true;
+    });
 
+    // Melakukan pemrosesan file paralel via Promise.all
+    await Promise.all(validEntries.map(async ([relativePath, zipEntry]) => {
       const localPath = path.resolve(process.cwd(), relativePath);
       const exists = fs.existsSync(localPath);
 
@@ -2122,7 +2337,7 @@ router.post('/codebase/check', async (req, res) => {
         if (localContent.trim() === zipContent.trim()) {
           status = 'unchanged';
           unchangedCount++;
-          continue; // Hanya laporkan berkas yang benar-benar mengalami perubahan
+          return; // Lewati berkas yang tidak berubah
         } else {
           status = 'modified';
           modifiedCount++;
@@ -2160,7 +2375,7 @@ router.post('/codebase/check', async (req, res) => {
         summaryOfChange,
         size: zipContent.length
       });
-    }
+    }));
 
     res.json({
       success: true,
@@ -2203,12 +2418,12 @@ router.post('/codebase/apply', async (req, res) => {
     let appliedCount = 0;
     const appliedFiles: string[] = [];
 
-    for (const [relativePath, zipEntry] of Object.entries(loadedZip.files)) {
-      if (zipEntry.dir) continue;
+    const validEntries = Object.entries(loadedZip.files).filter(([relativePath, zipEntry]) => {
+      if (zipEntry.dir) return false;
 
       // Abaikan berkas metadata OS atau file tersembunyi
       if (relativePath.includes('__MACOSX') || relativePath.split('/').pop()?.startsWith('.')) {
-        continue;
+        return false;
       }
 
       // Cegah penulisan ulang pada folder dependensi, database persisten, dan konfigurasi rahasia
@@ -2219,9 +2434,13 @@ router.post('/codebase/apply', async (req, res) => {
         relativePath.includes('database.sqlite') ||
         relativePath.endsWith('.env')
       ) {
-        continue;
+        return false;
       }
+      return true;
+    });
 
+    // Mengekstrak dan menulis berkas-berkas secara paralel
+    await Promise.all(validEntries.map(async ([relativePath, zipEntry]) => {
       const localPath = path.resolve(process.cwd(), relativePath);
 
       // Buat direktori induk secara rekursif jika belum tercipta di workspace
@@ -2233,7 +2452,7 @@ router.post('/codebase/apply', async (req, res) => {
       
       appliedCount++;
       appliedFiles.push(relativePath);
-    }
+    }));
 
     res.json({
       success: true,
@@ -2245,5 +2464,109 @@ router.post('/codebase/apply', async (req, res) => {
   }
 });
 // === AKHIR DARI ENDPOINT TERAPKAN CODEBASE ===
+
+// === ENDPOINT CATATAN WALI KELAS ===
+router.get('/catatan_walikelas', async (req, res) => {
+  try {
+    const { kelas_id } = req.query;
+    let query = `
+      SELECT c.*, s.nama as nama_siswa, p.nama as nama_guru 
+      FROM catatan_walikelas c
+      JOIN siswa s ON c.siswa_nis = s.nis
+      JOIN pengguna p ON c.guru_id = p.id
+    `;
+    const params: any[] = [];
+    if (kelas_id) {
+      query += ` WHERE c.kelas_id = ?`;
+      params.push(kelas_id);
+    }
+    query += ` ORDER BY c.id DESC`;
+    
+    const data = await dbAll(query, params);
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/catatan_walikelas', async (req, res) => {
+  try {
+    const { siswa_nis, kelas_id, guru_id, kategori, catatan } = req.body;
+    const tanggal = formatDateYYYYMMDD();
+    const result = await dbRun(
+      `INSERT INTO catatan_walikelas (siswa_nis, kelas_id, guru_id, kategori, catatan, tanggal) 
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [siswa_nis, kelas_id, guru_id, kategori || 'Umum', catatan, tanggal]
+    );
+    res.json({ id: result.id, success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/catatan_walikelas/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await dbRun(`DELETE FROM catatan_walikelas WHERE id = ?`, [id]);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+// === AKHIR DARI ENDPOINT CATATAN WALI KELAS ===
+
+// === ENDPOINT SURAT BK ===
+router.get('/surat_bk', async (req, res) => {
+  try {
+    const query = `
+      SELECT sb.*, s.nama as nama_siswa, p.nama as nama_guru 
+      FROM surat_bk sb
+      JOIN siswa s ON sb.siswa_nis = s.nis
+      JOIN pengguna p ON sb.guru_id = p.id
+      ORDER BY sb.id DESC
+    `;
+    const data = await dbAll(query);
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/surat_bk', async (req, res) => {
+  try {
+    const { siswa_nis, guru_id, jenis_surat, keterangan } = req.body;
+    const tanggal = formatDateYYYYMMDD();
+    const result = await dbRun(
+      `INSERT INTO surat_bk (siswa_nis, guru_id, jenis_surat, tanggal, keterangan) 
+       VALUES (?, ?, ?, ?, ?)`,
+      [siswa_nis, guru_id, jenis_surat, tanggal, keterangan]
+    );
+    res.json({ id: result.id, success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/surat_bk/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    await dbRun(`UPDATE surat_bk SET status = ? WHERE id = ?`, [status, id]);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/surat_bk/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await dbRun(`DELETE FROM surat_bk WHERE id = ?`, [id]);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+// === AKHIR DARI ENDPOINT SURAT BK ===
 
 export default router;

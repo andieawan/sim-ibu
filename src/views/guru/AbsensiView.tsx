@@ -38,7 +38,8 @@ export default function AbsensiView({
   const isLight = typeof document !== 'undefined' && document.documentElement.classList.contains('theme-light');
   const getAuthHeader = () => {
     try {
-      const saved = sessionStorage.getItem('simibu_user');
+      // Aliran Data: Mengambil data token pengguna (simibu_user) dari localStorage atau sessionStorage untuk otentikasi API Absensi Guru
+      const saved = localStorage.getItem('simibu_user') || sessionStorage.getItem('simibu_user');
       if (saved) {
         const u = JSON.parse(saved);
         if (u && u.token) {
@@ -62,6 +63,18 @@ export default function AbsensiView({
 
   const [isEditingSession, setIsEditingSession] = useState<boolean>(false);
   const [editingSessionId, setEditingSessionId] = useState<number | null>(null);
+
+  // Maksud Bisnis: Mengontrol scroll-lock pada body document untuk mencegah double-scrolling ketika drawer/modal absensi harian aktif
+  useEffect(() => {
+    if (selectedHistorySession) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [selectedHistorySession]);
 
   const [attendanceDate, setAttendanceDate] = useState<string>(
     new Date().toISOString().split('T')[0]
