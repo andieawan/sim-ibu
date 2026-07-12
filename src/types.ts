@@ -20,6 +20,7 @@ export interface Kelas {
   username_walikelas?: string; // Username wali kelas untuk keperluan kueri/log
   jurusan?: string;            // Singkatan jurusan (contoh: "RPL", "TKJ")
   is_mengajar?: number;        // Penanda apakah guru aktif saat ini mengajar di kelas ini (0 atau 1)
+  total_siswa?: number;        // Jumlah total siswa dalam kelas (opsional, dihitung dinamis)
 }
 
 /**
