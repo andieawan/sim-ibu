@@ -1,7 +1,6 @@
 export const formatIndoDate = (dateStr: string | null | undefined): string => {
   if (!dateStr) return '';
-  const cleaned = dateStr.replace(/-/g, '/');
-  const parts = cleaned.split('/');
+  const parts = dateStr.includes('/') ? dateStr.split('/') : dateStr.split('-');
   if (parts.length === 3) {
     const year = parts[0];
     const monthIndex = parseInt(parts[1], 10) - 1;

@@ -55,7 +55,7 @@ export default function KepsekView({ classes, currentUser }: KepsekViewProps) {
           <div className="w-10 h-10 mx-auto bg-amber-500/10 text-amber-400 rounded-xl flex items-center justify-center mb-3">
             <Briefcase className="w-5 h-5" />
           </div>
-          <p className="text-3xl font-black text-slate-100">{stats?.total_kelas || 0}</p>
+          <p className="text-3xl font-black text-slate-100">{stats?.total_guru || 0}</p>
           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mt-1">Guru Aktif</p>
         </div>
         <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800 text-center">

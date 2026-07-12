@@ -581,13 +581,15 @@ export async function initializeDatabase() {
 
     // ============================================================================
     // MIGRASI DIAGNOSTIK & DEFENSIVE COLUMN ADDITION (MULTI-ENGINE COMPATIBLE)
-    // Maksud Bisnis: Memigrasikan format tanggal lama agar seragam menggunakan garis miring ('/'),
+    // Maksud Bisnis: Memigrasikan format tanggal lama agar seragam menggunakan format ISO YYYY-MM-DD,
     // serta menjamin kolom-kolom baru seperti 'is_approved_by_walikelas' dan 'sql_statements'
     // ditambahkan dengan aman baik di SQLite maupun PostgreSQL tanpa memicu kegagalan startup.
     // ============================================================================
     try {
-      await dbRun("UPDATE absensi SET tanggal = REPLACE(tanggal, '-', '/') WHERE tanggal LIKE '%-%'");
-      await dbRun("UPDATE aktivitas_nilai SET tanggal = REPLACE(tanggal, '-', '/') WHERE tanggal LIKE '%-%'");
+      await dbRun("UPDATE absensi SET tanggal = REPLACE(tanggal, '/', '-') WHERE tanggal LIKE '%/%'");
+      await dbRun("UPDATE aktivitas_nilai SET tanggal = REPLACE(tanggal, '/', '-') WHERE tanggal LIKE '%/%'");
+      await dbRun("UPDATE catatan_walikelas SET tanggal = REPLACE(tanggal, '/', '-') WHERE tanggal LIKE '%/%'");
+      await dbRun("UPDATE surat_bk SET tanggal = REPLACE(tanggal, '/', '-') WHERE tanggal LIKE '%/%'");
       
       if (activeProvider.name === 'sqlite') {
         // --- LOGIK KHUSUS ENGINE SQLITE ---

@@ -110,7 +110,7 @@ export default function AbsensiView({
     setLoadingHistory(true);
     try {
       const rawData = await getAbsensiHistory(classId);
-      const data = rawData.map((h: any) => ({ ...h, tanggal: h.tanggal ? h.tanggal.replace(/\//g, '-') : '' }));
+      const data = rawData.map((h: any) => ({ ...h, tanggal: h.tanggal || '' }));
       setHistory(data);
       
       // Check if there is an existing record on the targeted date

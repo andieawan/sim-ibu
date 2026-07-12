@@ -175,26 +175,69 @@ function loginRateLimiter(req: any, res: any, next: any) {
 }
 
 // ============================================================================
+// TOKEN UTILITIES
+// Maksud Bisnis: Memastikan dukungan autentikasi stateless (API Token) 
+//                selain stateful cookie demi kompatibilitas cross-origin.
+// ============================================================================
+const TOKEN_SECRET = process.env.COOKIE_PASSWORD || 'complex_password_at_least_32_characters_long';
+
+export function generateToken(payload: { id: number; username: string; role: string }): string {
+  const data = JSON.stringify(payload);
+  const signature = crypto.createHmac('sha256', TOKEN_SECRET).update(data).digest('hex');
+  return Buffer.from(JSON.stringify({ data, signature })).toString('base64');
+}
+
+export function verifyToken(token: string): { id: number; username: string; role: string } | null {
+  try {
+    const jsonStr = Buffer.from(token, 'base64').toString('utf8');
+    const { data, signature } = JSON.parse(jsonStr);
+    const expectedSignature = crypto.createHmac('sha256', TOKEN_SECRET).update(data).digest('hex');
+    if (signature === expectedSignature) {
+      return JSON.parse(data);
+    }
+  } catch (err) {
+    // ignore parsing/decoding errors
+  }
+  return null;
+}
+
+export async function getUserFromReq(req: any, res: any): Promise<{ id: number; username: string; role: string } | undefined> {
+  // Cek Header Authorization
+  const authHeader = req.headers['authorization'];
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7);
+    const userPayload = verifyToken(token);
+    if (userPayload) {
+      return userPayload;
+    }
+  }
+
+  // Fallback ke Iron Session
+  const session = await getIronSession<MySessionData>(req, res, sessionOptions);
+  return session.user;
+}
+
+// ============================================================================
 // MIDDLEWARE: requireAdmin
 // Deskripsi : Memastikan pengguna memiliki sesi aktif dengan peran (role) 'admin'.
 // ============================================================================
 async function requireAdmin(req: any, res: any, next: any) {
-  const session = await getIronSession<MySessionData>(req, res, sessionOptions);
+  const userPayload = await getUserFromReq(req, res);
 
-  if (!session.user) {
+  if (!userPayload) {
     return res.status(401).json({ error: 'Akses ditolak: Sesi tidak ditemukan. Harap login kembali.' });
   }
 
   const user = await dbGet<{ id: number; role: string }>(
     'SELECT id, role FROM pengguna WHERE id = ?',
-    [session.user.id]
+    [userPayload.id]
   );
 
-  if (!user || user.role !== 'admin' || session.user.role !== 'admin') {
+  if (!user || user.role !== 'admin' || userPayload.role !== 'admin') {
     return res.status(403).json({ error: 'Akses ditolak: Hanya pengguna dengan hak akses Admin yang diizinkan.' });
   }
 
-  (req as any).user = session.user;
+  (req as any).user = userPayload;
   next();
 }
 
@@ -208,13 +251,13 @@ router.use('/system', requireAdmin);
 // Deskripsi : Proteksi rute umum untuk memvalidasi keberadaan sesi aktif pengguna.
 // ============================================================================
 async function authenticateSession(req: any, res: any, next: any) {
-  const session = await getIronSession<MySessionData>(req, res, sessionOptions);
+  const userPayload = await getUserFromReq(req, res);
   
-  if (!session.user) {
+  if (!userPayload) {
     return res.status(401).json({ error: 'Akses ditolak: Sesi tidak ditemukan. Harap login kembali.' });
   }
 
-  req.user = session.user;
+  req.user = userPayload;
   next();
 }
 
@@ -413,7 +456,7 @@ router.get('/siswa-all', async (req, res) => {
 //   3. Mengambil riwayat nilai aktivitas beserta KKM dan status kelulusan.
 // - Output: Objek JSON berisi detail siswa, daftar absensi, dan daftar nilai.
 // ============================================================================
-router.get('/siswa-profile/:nis', async (req, res) => {
+router.get('/siswa-profile/:nis', authenticateSession, async (req, res) => {
   try {
     const { nis } = req.params;
     
@@ -749,7 +792,7 @@ router.post('/absensi', async (req, res) => {
     const hasAccess = await verifyGuruClassAccess(req, res, kelas_id);
     if (!hasAccess) return;
 
-    const normalizedTanggal = tanggal.replace(/-/g, '/');
+    const normalizedTanggal = tanggal;
 
     // 1. Check or insert Absensi record
     let abs = await dbGet<{ id: number, is_approved_by_walikelas: number }>('SELECT id, is_approved_by_walikelas FROM absensi WHERE tanggal = ? AND kelas_id = ?', [normalizedTanggal, kelas_id]);
@@ -815,7 +858,7 @@ router.post('/walikelas/absensi', async (req, res) => {
 
     const numericKelasId = Number(kelas_id);
     const timestamp = formatDateISO();
-    const normalizedTanggal = tanggal.replace(/-/g, '/');
+    const normalizedTanggal = tanggal;
 
     // 1. Check or insert Absensi record
     let abs = await dbGet<{ id: number }>('SELECT id FROM absensi WHERE tanggal = ? AND kelas_id = ?', [normalizedTanggal, numericKelasId]);
@@ -882,7 +925,7 @@ router.post('/nilai', async (req, res) => {
     const hasAccess = await verifyGuruClassAccess(req, res, kelas_id);
     if (!hasAccess) return;
 
-    const normalizedTanggal = tanggal.replace(/-/g, '/');
+    const normalizedTanggal = tanggal;
     const manualKkm = typeof kkm === 'number' ? kkm : parseFloat(kkm) || 75;
 
     // 1. Insert or get AktivitasNilai
@@ -929,7 +972,7 @@ router.put('/nilai/:aktivitas_id', async (req, res) => {
     const hasAccess = await verifyGuruClassAccess(req, res, act.kelas_id);
     if (!hasAccess) return;
 
-    const normalizedTanggal = tanggal ? tanggal.replace(/-/g, '/') : '';
+    const normalizedTanggal = tanggal || '';
     const manualKkm = typeof kkm === 'number' ? kkm : parseFloat(kkm) || 75;
 
     // 1. Update Aktivitas_Nilai metadata
@@ -1044,6 +1087,11 @@ router.get('/stats', async (req, res) => {
       classIds = rows.map(r => r.id);
     }
 
+    const teacherCountRes = await dbGet<{ count: number }>(
+      "SELECT COUNT(*) as count FROM pengguna WHERE role IN ('guru', 'kajur', 'bk', 'kepsek')"
+    );
+    const totalGuruVal = teacherCountRes?.count || 0;
+
     if (classIds.length === 0) {
       return res.json({
         total_kelas: 0,
@@ -1054,6 +1102,7 @@ router.get('/stats', async (req, res) => {
         rata_rata_nilai: 0,
         persen_remedial: 0,
         total_remedial: 0,
+        total_guru: totalGuruVal,
         classes_breakdown: []
       });
     }
@@ -1118,6 +1167,7 @@ router.get('/stats', async (req, res) => {
       total_siswa_binaan: remedialStudentsVal + jarangMasukStudentsVal,
       persen_remedial: totalStudentsVal ? Math.round((remedialStudentsVal / totalStudentsVal) * 100) : 0,
       total_remedial: remedialStudentsVal,
+      total_guru: totalGuruVal,
     };
 
     // Now let's calculate stats breakdown for each class in classIds
@@ -1156,6 +1206,23 @@ router.get('/stats', async (req, res) => {
       const jarangMasukStudents = cJarangMasuk?.count || 0;
       const totalBinaan = remedialStudents + jarangMasukStudents;
 
+      // Calculate average_kehadiran for this class
+      const totalSessionsRes = await dbGet<{ count: number }>('SELECT COUNT(*) as count FROM absensi WHERE kelas_id = ?', [cId]);
+      const totalSessions = totalSessionsRes?.count || 0;
+      let averageKehadiran = 100;
+      if (totalSessions > 0 && totalStudents > 0) {
+        const totalHadirRes = await dbGet<{ count: number }>(`
+          SELECT COUNT(*) as count 
+          FROM detail_absensi da
+          JOIN absensi a ON da.absensi_id = a.id
+          JOIN siswa s ON da.siswa_nis = s.nis
+          WHERE a.kelas_id = ? AND s.status_aktif = 1 AND da.status = 'Hadir'
+        `, [cId]);
+        const totalHadir = totalHadirRes?.count || 0;
+        averageKehadiran = Math.round((totalHadir / (totalSessions * totalStudents)) * 100);
+        if (averageKehadiran > 100) averageKehadiran = 100;
+      }
+
       classesBreakdown.push({
         id: cls.id,
         nama_kelas: cls.nama_kelas,
@@ -1168,6 +1235,7 @@ router.get('/stats', async (req, res) => {
         rata_rata_nilai: cAvg && cAvg.avg ? Math.round(cAvg.avg * 10) / 10 : 0,
         total_remedial: remedialStudents,
         persen_remedial: totalStudents ? Math.round((remedialStudents / totalStudents) * 100) : 0,
+        average_kehadiran: averageKehadiran,
       });
     }
 
@@ -1627,6 +1695,8 @@ router.post('/auth/login', loginRateLimiter, async (req, res) => {
     session.user = { id: user.id, username: user.username, role: user.role };
     await session.save();
 
+    const token = generateToken({ id: user.id, username: user.username, role: user.role });
+
     // Return user details for immediate client-side profile usage
     res.json({
       id: user.id,
@@ -1638,6 +1708,7 @@ router.post('/auth/login', loginRateLimiter, async (req, res) => {
       jurusan: user.jurusan || '',
       siswa_nis: user.siswa_nis || null,
       kelas_id: user.kelas_id || null,
+      token,
       message: 'Login berhasil'
     });
   } catch (error: any) {
@@ -2628,7 +2699,7 @@ router.delete('/external/v1/siswa/:nis', requireExternalApiKey, async (req, res)
 // - Output: Ringkasan statistik (jumlah file ditambah, dimodifikasi, ukuran) serta
 //   array rincian perubahan berkas lengkap dengan status dan jenis semantik perubahannya.
 // ============================================================================
-router.post('/codebase/check', async (req, res) => {
+router.post('/codebase/check', requireAdmin, async (req, res) => {
   const { fileBase64 } = req.body;
 
   if (!fileBase64) {
@@ -2747,7 +2818,7 @@ router.post('/codebase/check', async (req, res) => {
 // - Input: Objek JSON `req.body` berisi `fileBase64` (string Base64 berkas ZIP).
 // - Output: Pesan sukses berserta jumlah berkas yang berhasil diperbarui di sistem.
 // ============================================================================
-router.post('/codebase/apply', async (req, res) => {
+router.post('/codebase/apply', requireAdmin, async (req, res) => {
   const { fileBase64 } = req.body;
 
   if (!fileBase64) {
