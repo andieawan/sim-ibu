@@ -1,9 +1,15 @@
+// ============================================================================
+// Nama File : AdminCatalogTab.tsx
+// Lokasi    : /src/views/admin/tabs/AdminCatalogTab.tsx
+// Peran     : Sub-komponen tab Panel Admin untuk direktori katalog kelas dan siswa.
+//             Mengelola data pendaftaran siswa, kenaikan kelas, dan ekspor xlsx siswa.
+// Dependency: react, lucide-react, AdminTabProps
+// ============================================================================
+
 import React, { useEffect } from 'react';
 import { 
-  Users, Key, Plus, Trash2, Shield, Settings, Database, 
-  RotateCcw, CheckCircle2, ShieldAlert, Edit, Save, X, 
-  GraduationCap, Layers, Search, UserCheck, Upload, Download, Info, Calendar,
-  Activity, Cpu, Wrench
+  Users, Key, Trash2, Shield, Database, ShieldAlert, Edit, Save, X, 
+  Search, Upload, Download, Info
 } from 'lucide-react';
 import { AdminTabProps } from '../types';
 import { useDialog } from '../../../components/DialogProvider';

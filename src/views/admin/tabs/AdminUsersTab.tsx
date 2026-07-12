@@ -1,9 +1,15 @@
+// ============================================================================
+// Nama File : AdminUsersTab.tsx
+// Lokasi    : /src/views/admin/tabs/AdminUsersTab.tsx
+// Peran     : Sub-komponen tab Panel Admin untuk mengelola akun pengguna (CRUD).
+//             Mendukung otorisasi multi-role (Admin, Guru, BK, Wali Murid, Kajur, Kepsek).
+// Dependency: react, lucide-react, AdminTabProps
+// ============================================================================
+
 import React, { useEffect } from 'react';
 import { 
-  Users, Key, Plus, Trash2, Shield, Settings, Database, 
-  RotateCcw, CheckCircle2, ShieldAlert, Edit, Save, X, 
-  GraduationCap, Layers, Search, UserCheck, Upload, Download, Info, Calendar,
-  Activity, Cpu, Wrench
+  Users, Plus, Trash2, Shield, Database, CheckCircle2, ShieldAlert, Edit, Save, X, 
+  Search, UserCheck, Upload, Info
 } from 'lucide-react';
 import { AdminTabProps } from '../types';
 import { useMultiSpreadsheetImport } from '../hooks/useMultiSpreadsheetImport';

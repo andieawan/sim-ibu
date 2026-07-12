@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { SuratBk, Pengguna, Siswa } from '../../types';
 import { Plus, Save, FileText, Trash, Printer, Search, Check } from 'lucide-react';
 import { useDialog } from '../../components/DialogProvider';
+import { useSchoolIdentity } from '../../context/SchoolIdentityContext';
 
 interface BkSuratProps {
   currentUser: Pengguna;
+  schoolIdentity?: any;
 }
 
-export default function BkSurat({ currentUser }: BkSuratProps) {
+export default function BkSurat({ currentUser, schoolIdentity: propSchoolIdentity }: BkSuratProps) {
   const { showAlert, showConfirm } = useDialog();
   const [suratList, setSuratList] = useState<SuratBk[]>([]);
   const [siswaList, setSiswaList] = useState<Siswa[]>([]);
@@ -19,16 +21,8 @@ export default function BkSurat({ currentUser }: BkSuratProps) {
   const [filterJenis, setFilterJenis] = useState('Semua');
   const [filterStatus, setFilterStatus] = useState('Semua');
 
-  const [schoolIdentity, setSchoolIdentity] = useState({
-    nama_sekolah: 'SMK IBU',
-    motto: '',
-    alamat: 'Jl. Pendidikan No. 1, Kota Pelajar',
-    npsn: '',
-    kepala_sekolah: '',
-    tahun_pelajaran: '',
-    semester: '',
-    logo: ''
-  });
+  const { schoolIdentity: contextSchoolIdentity } = useSchoolIdentity();
+  const schoolIdentity = propSchoolIdentity || contextSchoolIdentity;
 
   const [newSurat, setNewSurat] = useState({
     siswa_nis: '',
@@ -53,13 +47,6 @@ export default function BkSurat({ currentUser }: BkSuratProps) {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch school identity
-      const resSchool = await fetch('/api/school-identity');
-      if (resSchool.ok) {
-        const schoolData = await resSchool.json();
-        setSchoolIdentity(schoolData);
-      }
-
       // Fetch students for dropdown
       const resSiswa = await fetch('/api/siswa-all');
       if (resSiswa.ok) {

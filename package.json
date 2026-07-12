@@ -35,10 +35,10 @@
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.3",
-    "xlsx": "https://cdn.sheetjs.com/xlsx-latest/xlsx-latest.tgz"
+    "xlsx": "^0.18.5"
   },
   "overrides": {
-    "xlsx": "https://cdn.sheetjs.com/xlsx-latest/xlsx-latest.tgz",
+    "xlsx": "^0.18.5",
     "@tootallnate/once": "^2.0.1"
   },
   "devDependencies": {

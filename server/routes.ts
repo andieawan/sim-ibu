@@ -1,3 +1,12 @@
+// ============================================================================
+// Nama File : routes.ts
+// Lokasi    : /server/routes.ts
+// Peran     : Router API modular utama yang menangani seluruh operasi bisnis backend.
+//             Mengatur endpoint otentikasi (login, logout, sesi),
+//             CRUD kelas, siswa, absensi, nilai, serta modul admin, BK, dan Kajur.
+// Dependency: express, bcryptjs, iron-session, jszip, better-sqlite3
+// ============================================================================
+
 import { Router } from 'express';
 import { db, dbRun, dbAll, dbGet, initializeDatabase } from './db';
 import bcrypt from 'bcryptjs';
@@ -5,7 +14,9 @@ import { getIronSession } from 'iron-session';
 import JSZip from 'jszip';
 import { executeBackupToGoogle } from './scheduler';
 
-// Define session data type
+// KONTRAK DATA: MySessionData
+// Maksud Bisnis: Struktur penyimpanan data sesi pengguna di dalam cookie terenkripsi
+//                menggunakan Iron Session agar aman dari manipulasi klien.
 export interface MySessionData {
   user?: {
     id: number;
@@ -16,6 +27,7 @@ export interface MySessionData {
 import fs from 'fs';
 import path from 'path';
 
+// Opsi konfigurasi Iron Session untuk enkripsi cookie
 const sessionOptions = {
   password: process.env.COOKIE_PASSWORD || 'complex_password_at_least_32_characters_long',
   cookieName: 'si-gup-session',
@@ -23,24 +35,6 @@ const sessionOptions = {
     secure: process.env.NODE_ENV === 'production',
   },
 };
-
-// ============================================================================
-// SISTEM GURU PINTAR (SiGup) - CORE API ROUTER
-// FILE: server/routes.ts
-// 
-// Halo Developer! 
-// File ini adalah inti dari seluruh bisnis backend aplikasi SiGup.
-// Semua interaksi database yang dipanggil dari Antarmuka React, bermuara di file ini.
-// Di sini Anda akan menemukan Endpoint: 
-// - Authentication JWT (Auth Login) & Penggantian Password
-// - Manajemen CRUD Siswa, Kelas, & Nilai
-// - Endpoint spesifik berdasarkan role (Admin, Guru, Wali Kelas, Wali Murid)
-// 
-// CATATAN PENGEMBANGAN:
-// Gunakan `dbGet` (ambil 1 baris), `dbAll` (ambil banyak baris), dan
-// `dbRun` (untuk INSERT/UPDATE/DELETE). Selalu gunakan parameterized
-// query (tanda `?`) untuk mencegah bahaya SQL Injection!
-// ============================================================================
 
 // ============================================================================
 // HELPER: Normalisasi Tanggal Global (Layer API)
@@ -67,7 +61,12 @@ const router = Router();
 
 const schoolIdentityPath = path.resolve(process.cwd(), 'school_identity.json');
 
-// Get current school identity details
+// ============================================================================
+// ENDPOINT: GET /api/school-identity
+// Deskripsi : Mengambil identitas global sekolah (nama, npsn, kasek, dsb) 
+//             yang disimpan dalam format file JSON.
+// Keperluan : Digunakan oleh Navbar, halaman profil, dan kop surat BK.
+// ============================================================================
 router.get('/school-identity', (req, res) => {
   try {
     const defaultData = {
@@ -96,7 +95,11 @@ router.get('/school-identity', (req, res) => {
   }
 });
 
-// Update school identity
+// ============================================================================
+// ENDPOINT: POST /api/school-identity
+// Deskripsi : Memperbarui konfigurasi identitas sekolah (Hanya Admin).
+// Keperluan : Sinkronisasi data sekolah dan memetakan pembaruan nama sekolah ke tabel kelas.
+// ============================================================================
 router.post('/school-identity', requireAdmin, async (req, res) => {
   try {
     const { nama_sekolah, motto, alamat, npsn, kepala_sekolah, tahun_pelajaran, semester, logo } = req.body;
@@ -115,7 +118,7 @@ router.post('/school-identity', requireAdmin, async (req, res) => {
     };
     fs.writeFileSync(schoolIdentityPath, JSON.stringify(updatedData, null, 2), 'utf8');
     
-    // Also sync school name to the kelas table if possible
+    // Sinkronisasi nama sekolah ke tabel kelas untuk keseragaman database
     try {
       await dbRun('UPDATE kelas SET sekolah = ?', [updatedData.nama_sekolah]);
     } catch (dbErr) {
@@ -129,7 +132,11 @@ router.post('/school-identity', requireAdmin, async (req, res) => {
   }
 });
 
-// Expose public APP_ENV configuration to the clients
+// ============================================================================
+// ENDPOINT: GET /api/config
+// Deskripsi : Mengambil status variabel lingkungan APP_ENV ('dev' atau 'pub').
+// Keperluan : Mengendalikan tampilan UI demo vs produksi di sisi frontend.
+// ============================================================================
 router.get('/config', (req, res) => {
   const env = (process.env.APP_ENV || 'dev').toLowerCase().trim();
   const appEnv = (env === 'publish' || env === 'pub') ? 'pub' : 'dev';
@@ -138,14 +145,19 @@ router.get('/config', (req, res) => {
 
 import crypto from 'crypto';
 
-// Helper to check if a string is a bcrypt hash
+// Helper pengecekan format hash bcrypt
 function isBcryptHash(str: string): boolean {
   return /^\$2[ayb]\$\d+\$[./A-Za-z0-9]{53}$/.test(str);
 }
 
-// In-Memory Login Rate Limiter (Brute-force protection)
+// Penyimpanan sementara untuk pembatasan percobaan login (Anti-Brute Force)
 const loginAttempts = new Map<string, { count: number; lockUntil: number }>();
 
+// ============================================================================
+// MIDDLEWARE: loginRateLimiter
+// Deskripsi : Membatasi IP klien agar tidak melakukan percobaan login membabi buta.
+// Aturan Bisnis: Kunci IP selama 60 detik jika gagal berulang kali demi keamanan.
+// ============================================================================
 function loginRateLimiter(req: any, res: any, next: any) {
   const rawIp = req.ip || req.headers['x-forwarded-for'] || 'unknown';
   const ip = Array.isArray(rawIp) ? rawIp[0] : String(rawIp);
@@ -162,6 +174,10 @@ function loginRateLimiter(req: any, res: any, next: any) {
   next();
 }
 
+// ============================================================================
+// MIDDLEWARE: requireAdmin
+// Deskripsi : Memastikan pengguna memiliki sesi aktif dengan peran (role) 'admin'.
+// ============================================================================
 async function requireAdmin(req: any, res: any, next: any) {
   const session = await getIronSession<MySessionData>(req, res, sessionOptions);
 
@@ -182,12 +198,15 @@ async function requireAdmin(req: any, res: any, next: any) {
   next();
 }
 
-// Middleware: Authenticate and authorize Admin role for all administration paths (Session Protected)
+// Mengunci rute-rute administratif menggunakan pengaman rute admin
 router.use('/admin', requireAdmin);
 router.use('/patches', requireAdmin);
 router.use('/system', requireAdmin);
 
-// Middleware to authenticate general users using Iron Session
+// ============================================================================
+// MIDDLEWARE: authenticateSession
+// Deskripsi : Proteksi rute umum untuk memvalidasi keberadaan sesi aktif pengguna.
+// ============================================================================
 async function authenticateSession(req: any, res: any, next: any) {
   const session = await getIronSession<MySessionData>(req, res, sessionOptions);
   

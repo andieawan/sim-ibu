@@ -1,11 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Kelas, Pengguna } from '../../types';
+import { Kelas } from '../../types';
 import { Users, BookOpen, AlertTriangle, Briefcase, Award } from 'lucide-react';
-
-interface KepsekViewProps {
-  classes: Kelas[];
-  currentUser: Pengguna;
-}
+import { KepsekViewProps } from './types';
 
 export default function KepsekView({ classes, currentUser }: KepsekViewProps) {
   const [stats, setStats] = useState<any>(null);

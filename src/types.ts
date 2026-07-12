@@ -1,11 +1,10 @@
 // ============================================================================
-// SIM-IBU (SISTEM INFORMASI DAN MANAJEMEN - SMKS ISLAM BUSTANUL ULUM) - TYPESCRIPT DEFINITIONS
-// FILE: src/types.ts
-// 
-// Catatan Pengembang:
-// File ini mendefinisikan seluruh struktur objek (Interface) TypeScript di aplikasi.
-// Gunakan antarmuka ini jika membuat komponen baru untuk menjaga konsistensi tipe data (Type Safety)
-// terhadap balasan API Express dari Backend maupun skema database.
+// Nama File : types.ts
+// Lokasi    : /src/types.ts
+// Peran     : Mendefinisikan seluruh struktur objek (interface) TypeScript global.
+//             Menjamin konsistensi tipe data (Type Safety) antara antarmuka React 
+//             di sisi frontend, router API Express, dan skema database relasional.
+// Dependency: Tidak ada (Murni deklarasi tipe TypeScript)
 // ============================================================================
 
 /**

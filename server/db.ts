@@ -1,30 +1,42 @@
+// ============================================================================
+// Nama File : server/db.ts
+// Lokasi    : /server/db.ts
+// Peran     : Mengelola koneksi database SQLite, migrasi skema tabel, 
+//             dan seeding data dummy awal untuk lingkungan pengembangan.
+//             Menggunakan pola Adapter (DatabaseProvider) agar sistem dapat dengan
+//             mudah beralih ke database relasional lain seperti PostgreSQL atau MySQL.
+// Dependency: better-sqlite3, bcryptjs, pg (opsional), mysql2 (opsional)
+// ============================================================================
+
 import path from 'path';
 import Database, { Database as BetterDatabase } from 'better-sqlite3';
 import fs from 'fs';
 import bcrypt from 'bcryptjs';
 
-// ============================================================================
-// SISTEM GURU PINTAR (SiGup) - DATABASE CONNECTION & MIGRATION SCRIPT
-// FILE: server/db.ts
-// 
-// Developer Note:
-// Pengelolaan Database Server kita ada di sini!
-// Menggunakan Better-SQLite3 untuk performa dan stabilitas. 
-// ============================================================================
-
 // Connect to SQLite Database
-const dbPath = path.resolve(process.cwd(), 'sekolah.db');
+const dbPath = path.resolve(process.cwd(), 'server', 'data', 'sekolah.db');
 
 export let db: BetterDatabase;
 
-// --- DATABASE PROVIDER INTERFACE ---
+// ============================================================================
+// INTERFACE: DatabaseProvider
+// Deskripsi : Kontrak standar untuk adapter koneksi database agar dapat 
+//             mendukung multi-engine database relasional secara transparan.
+// ============================================================================
 export interface DatabaseProvider {
+  /** Nama provider database (misal: 'sqlite', 'postgres', 'mysql') */
   name: string;
+  /** Fungsi untuk membuka koneksi ke database server */
   connect(): Promise<void>;
+  /** Fungsi untuk menjalankan operasi DML/DDL (INSERT, UPDATE, DELETE, CREATE) */
   run(sql: string, params?: any[]): Promise<{ id: number; changes: number }>;
+  /** Fungsi untuk mengambil banyak baris hasil query (SELECT) */
   all<T = any>(sql: string, params?: any[]): Promise<T[]>;
+  /** Fungsi untuk mengambil satu baris tunggal hasil query */
   get<T = any>(sql: string, params?: any[]): Promise<T | undefined>;
+  /** Fungsi untuk menutup koneksi database secara aman */
   close(): Promise<void>;
+  /** Fungsi opsional untuk menerjemahkan sintaks kueri antardialek database */
   translateSql?(sql: string): string;
 }
 
@@ -326,10 +338,19 @@ export function connectDatabase() {
 // Connect immediately
 connectDatabase();
 
-// Create tables & Seed dummy data
+// ============================================================================
+// FUNGSI UTAMA: initializeDatabase()
+// Deskripsi : Membuat seluruh skema tabel basis data relasional jika belum ada 
+//             dan menangani migrasi kolom secara dinamis (fault-tolerant).
+// Efek       : Membuat tabel kelas, siswa, aktivitas_nilai, detail_nilai,
+//              absensi, detail_absensi, pengguna, jadwal, catatan_walikelas, 
+//              surat_bk, dan patches beserta indeks kinerjanya.
+// ============================================================================
 export async function initializeDatabase() {
   try {
-    // 1. Table Kelas
+    // 1. TABEL: kelas
+    // Menampung entitas kelas di sekolah (contoh: X DKV 1, XI BD 1).
+    // walikelas_id menghubungkan kelas ke guru penanggung jawab di tabel pengguna.
     await dbRun(`
       CREATE TABLE IF NOT EXISTS kelas (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -339,19 +360,22 @@ export async function initializeDatabase() {
       )
     `);
 
+    // Migrasi kolom tambahan secara aman agar tidak menghapus data yang sudah ada
     try {
       await dbRun("ALTER TABLE kelas ADD COLUMN walikelas_id INTEGER");
     } catch (e) {
-      // Ignore if the column already exists
+      // Abaikan jika kolom sudah terbentuk sebelumnya
     }
 
     try {
       await dbRun("ALTER TABLE kelas ADD COLUMN jurusan TEXT DEFAULT ''");
     } catch (e) {
-      // Ignore
+      // Abaikan jika kolom sudah terbentuk sebelumnya
     }
 
-    // 2. Table Siswa
+    // 2. TABEL: siswa
+    // Menyimpan data profil siswa. nis sebagai primary key unik berupa Nomor Induk Siswa.
+    // status_aktif menandakan status keaktifan (1 = Aktif, 0 = Nonaktif/Keluar).
     await dbRun(`
       CREATE TABLE IF NOT EXISTS siswa (
         nis TEXT PRIMARY KEY,
@@ -366,10 +390,12 @@ export async function initializeDatabase() {
     try {
       await dbRun("ALTER TABLE siswa ADD COLUMN status_aktif INTEGER DEFAULT 1");
     } catch (e) {
-      // Ignore if the column already exists
+      // Abaikan jika kolom sudah terbentuk sebelumnya
     }
 
-    // 3. Table Aktivitas_Nilai
+    // 3. TABEL: aktivitas_nilai
+    // Menampung jenis evaluasi atau tugas (contoh: 'UH 1', 'Tugas DKV').
+    // Memiliki KKM (Kriteria Ketuntasan Minimal) default 75.
     await dbRun(`
       CREATE TABLE IF NOT EXISTS aktivitas_nilai (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -384,10 +410,12 @@ export async function initializeDatabase() {
     try {
       await dbRun("ALTER TABLE aktivitas_nilai ADD COLUMN kkm INTEGER DEFAULT 75");
     } catch (e) {
-      // Ignore if the column already exists
+      // Abaikan jika kolom sudah terbentuk sebelumnya
     }
 
-    // 4. Table Detail_Nilai
+    // 4. TABEL: detail_nilai
+    // Menyimpan perolehan nilai siswa untuk masing-masing aktivitas_nilai.
+    // Memiliki UNIQUE constraint kombinasi aktivitas_id dan siswa_nis agar tidak terjadi duplikasi nilai per tugas.
     await dbRun(`
       CREATE TABLE IF NOT EXISTS detail_nilai (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -401,7 +429,9 @@ export async function initializeDatabase() {
       )
     `);
 
-    // 5. Table Absensi
+    // 5. TABEL: absensi
+    // Menampung pencatatan absensi harian kelas pada tanggal tertentu.
+    // is_approved_by_walikelas digunakan untuk proses validasi absensi oleh Wali Kelas.
     await dbRun(`
       CREATE TABLE IF NOT EXISTS absensi (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -412,7 +442,9 @@ export async function initializeDatabase() {
       )
     `);
 
-    // 6. Table Detail_Absensi
+    // 6. TABEL: detail_absensi
+    // Menyimpan status kehadiran siswa pada satu record absensi harian kelas.
+    // Berisi enum: 'Hadir', 'Izin', 'Sakit', 'Alfa'.
     await dbRun(`
       CREATE TABLE IF NOT EXISTS detail_absensi (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -426,7 +458,9 @@ export async function initializeDatabase() {
       )
     `);
 
-    // 7. Table Pengguna
+    // 7. TABEL: pengguna
+    // Menyimpan kredensial login dan profil pengguna sistem (admin, guru, bk, kajur, kepsek, wali_murid).
+    // is_cuti digunakan sebagai penanda status cuti guru.
     await dbRun(`
       CREATE TABLE IF NOT EXISTS pengguna (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -443,40 +477,41 @@ export async function initializeDatabase() {
     try {
       await dbRun("ALTER TABLE pengguna ADD COLUMN nip TEXT DEFAULT ''");
     } catch (e) {
-      // Ignore if column already exists
+      // Abaikan jika kolom sudah terbentuk sebelumnya
     }
 
     try {
       await dbRun("ALTER TABLE pengguna ADD COLUMN jabatan TEXT DEFAULT ''");
     } catch (e) {
-      // Ignore if column already exists
+      // Abaikan jika kolom sudah terbentuk sebelumnya
     }
 
     try {
       await dbRun("ALTER TABLE pengguna ADD COLUMN siswa_nis TEXT");
     } catch (e) {
-      // Ignore if column already exists
+      // Abaikan jika kolom sudah terbentuk sebelumnya
     }
 
     try {
       await dbRun("ALTER TABLE pengguna ADD COLUMN kelas_id INTEGER");
     } catch (e) {
-      // Ignore if column already exists
+      // Abaikan jika kolom sudah terbentuk sebelumnya
     }
 
     try {
       await dbRun("ALTER TABLE pengguna ADD COLUMN jurusan TEXT DEFAULT ''");
     } catch (e) {
-      // Ignore
+      // Abaikan jika kolom sudah terbentuk sebelumnya
     }
 
     try {
       await dbRun("ALTER TABLE pengguna ADD COLUMN is_cuti INTEGER DEFAULT 0");
     } catch (e) {
-      // Ignore
+      // Abaikan jika kolom sudah terbentuk sebelumnya
     }
 
-    // 8. Table Jadwal
+    // 8. TABEL: jadwal
+    // Menyimpan mata pelajaran sekolah beserta hari, jam mulai, jam selesai, kelas, dan guru pengampu.
     await dbRun(`
       CREATE TABLE IF NOT EXISTS jadwal (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -491,7 +526,8 @@ export async function initializeDatabase() {
       )
     `);
 
-    // 9. Table Catatan Wali Kelas
+    // 9. TABEL: catatan_walikelas
+    // Menampung catatan khusus wali kelas terkait pembinaan siswa tertentu (contoh kategori: 'Prestasi', 'Indisipliner').
     await dbRun(`
       CREATE TABLE IF NOT EXISTS catatan_walikelas (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

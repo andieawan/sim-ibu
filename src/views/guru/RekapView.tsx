@@ -1,3 +1,12 @@
+// ============================================================================
+// Nama File : RekapView.tsx
+// Lokasi    : /src/views/guru/RekapView.tsx
+// Peran     : Halaman rekapitulasi data akademik sekolah. Memungkinkan guru mengunduh 
+//             berkas laporan Excel, mengekspor laporan ke Google Sheets/Docs, mencetak raport,
+//             serta menganalisis statistik visual kehadiran per kelas dengan Recharts.
+// Dependency: react, xlsx, recharts, workspaceAuth, workspaceExport, lucide-react, types
+// ============================================================================
+
 import { useState, useEffect } from 'react';
 import { Printer, Download, BookOpen, Calendar, Award, Loader2, RefreshCw, CheckCircle2, FileSpreadsheet, FileText, LogOut, Check, BarChart3 } from 'lucide-react';
 import { Kelas } from '../../types';

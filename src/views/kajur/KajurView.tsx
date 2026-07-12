@@ -1,12 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Kelas, Pengguna } from '../../types';
+import { Kelas } from '../../types';
 import { BarChart3, Users, Briefcase } from 'lucide-react';
 import { useDialog } from '../../components/DialogProvider';
-
-interface KajurViewProps {
-  currentUser: Pengguna;
-  classes: Kelas[];
-}
+import { KajurViewProps } from './types';
 
 export default function KajurView({ currentUser, classes }: KajurViewProps) {
   const { showAlert } = useDialog();

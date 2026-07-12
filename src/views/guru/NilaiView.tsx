@@ -1,35 +1,19 @@
+// ============================================================================
+// Nama File : NilaiView.tsx
+// Lokasi    : /src/views/guru/NilaiView.tsx
+// Peran     : Halaman manajemen nilai dan KKM guru. Memungkinkan guru membuat aktivitas 
+//             penilaian, memberikan nilai, mengatur batas KKM, dan melihat riwayat nilai.
+// Dependency: react, lucide-react, formatIndoDate, useDialog, types
+// ============================================================================
+
 import { useState, useEffect } from 'react';
 import { Award, CheckCircle2, ShieldAlert, History, ArrowLeft, Loader2, Save, Sparkles, BookOpen, Check } from 'lucide-react';
 import { Kelas, Siswa } from '../../types';
 import NilaiHistoryModal from './NilaiHistoryModal';
 import { formatIndoDate } from '../../utils';
 import { useDialog } from '../../components/DialogProvider';
-
-interface NilaiViewProps {
-  classes: Kelas[];
-  loadingClasses: boolean;
-  selectedClassId: number | null;
-  onClassChange: (id: number) => void;
-}
-
-interface NilaiHistoryRecord {
-  id: number;
-  nama_aktivitas: string;
-  tanggal: string;
-  rata_rata: number;
-  count_remedial: number;
-  total_siswa: number;
-  kkm?: number;
-}
-
-interface NilaiDetailRecord {
-  id: number;
-  siswa_nis: string;
-  nama: string;
-  jenis_kelamin: string;
-  nilai: number;
-  catatan: string;
-}
+import { NilaiViewProps, NilaiHistoryRecord, NilaiDetailRecord } from './types';
+import { useGuruNilai } from './hooks/useGuruNilai';
 
 export default function NilaiView({
   classes,
@@ -39,40 +23,36 @@ export default function NilaiView({
 }: NilaiViewProps) {
   const { showAlert } = useDialog();
   const isLight = typeof document !== 'undefined' && document.documentElement.classList.contains('theme-light');
-  const getAuthHeader = () => {
-    try {
-      // Aliran Data: Mengambil data token pengguna (simibu_user) dari localStorage atau sessionStorage untuk otentikasi API Nilai Guru
-      const saved = localStorage.getItem('simibu_user') || sessionStorage.getItem('simibu_user');
-      if (saved) {
-        const u = JSON.parse(saved);
-        if (u && u.token) {
-          return { 'Authorization': `Bearer ${u.token}` };
-        }
-      }
-    } catch (_) {}
-    return {};
-  };
 
-  const [students, setStudents] = useState<Siswa[]>([]);
-  const [loadingStudents, setLoadingStudents] = useState<boolean>(false);
   const [activityName, setActivityName] = useState<string>('Ulangan Harian 1');
   const [activityDate, setActivityDate] = useState<string>(
     new Date().toISOString().split('T')[0]
   );
   const [kkm, setKkm] = useState<number>(75);
-  
-  // Grade states
-  const [grades, setGrades] = useState<Record<string, number>>({});
-  const [notes, setNotes] = useState<Record<string, string>>({});
 
-  const [history, setHistory] = useState<NilaiHistoryRecord[]>([]);
-  const [loadingHistory, setLoadingHistory] = useState<boolean>(false);
-  const [selectedHistorySession, setSelectedHistorySession] = useState<NilaiHistoryRecord | null>(null);
-  const [historyDetails, setHistoryDetails] = useState<NilaiDetailRecord[]>([]);
-  const [loadingDetails, setLoadingDetails] = useState<boolean>(false);
-  
-  const [saving, setSaving] = useState<boolean>(false);
-  const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error' | ''; message: string }>({ type: '', message: '' });
+  const {
+    students,
+    loadingStudents,
+    grades,
+    setGrades,
+    notes,
+    setNotes,
+    history,
+    loadingHistory,
+    selectedHistorySession,
+    setSelectedHistorySession,
+    historyDetails,
+    loadingDetails,
+    saving,
+    updating,
+    saveStatus,
+    setSaveStatus,
+    loadStudents,
+    loadHistory,
+    handleSaveGrades,
+    loadHistoryDetails,
+    handleUpdateGrades
+  } = useGuruNilai(selectedClassId, kkm);
 
   // History editing states
   const [isEditing, setIsEditing] = useState<boolean>(false);
@@ -81,7 +61,6 @@ export default function NilaiView({
   const [editKkm, setEditKkm] = useState<number>(75);
   const [editGrades, setEditGrades] = useState<Record<string, number>>({});
   const [editNotes, setEditNotes] = useState<Record<string, string>>({});
-  const [updating, setUpdating] = useState<boolean>(false);
   const [warningMessage, setWarningMessage] = useState<string>('');
 
   useEffect(() => {
@@ -99,50 +78,7 @@ export default function NilaiView({
       loadHistory(selectedClassId);
       setSelectedHistorySession(null);
     }
-  }, [selectedClassId]);
-
-  const loadStudents = async (classId: number) => {
-    setLoadingStudents(true);
-    setSaveStatus({ type: '', message: '' });
-    try {
-      const res = await fetch(`/api/siswa/${classId}`, { headers: getAuthHeader() });
-      if (res.ok) {
-        const data: Siswa[] = await res.json();
-        const activeStudents = data.filter(s => s.status_aktif !== 0);
-        setStudents(activeStudents);
-        
-        // Initialize default scores
-        const initialGrades: Record<string, number> = {};
-        const initialNotes: Record<string, string> = {};
-        activeStudents.forEach(s => {
-          initialGrades[s.nis] = 80; // default passing value to be polite
-          initialNotes[s.nis] = 80 >= kkm ? 'Tuntas' : 'Remedial';
-        });
-        setGrades(initialGrades);
-        setNotes(initialNotes);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoadingStudents(false);
-    }
-  };
-
-  const loadHistory = async (classId: number) => {
-    setLoadingHistory(true);
-    try {
-      const res = await fetch(`/api/nilai-history/${classId}`, { headers: getAuthHeader() });
-      if (res.ok) {
-        const rawData = await res.json();
-        const data = rawData.map((record: any) => ({ ...record, tanggal: record.tanggal ? record.tanggal.replace(/\//g, '-') : '' }));
-        setHistory(data);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoadingHistory(false);
-    }
-  };
+  }, [selectedClassId, loadStudents, loadHistory, setSelectedHistorySession]);
 
   const handleGradeChange = (nis: string, value: string) => {
     let numericVal = parseFloat(value);
@@ -188,146 +124,37 @@ export default function NilaiView({
     }));
   };
 
-  const handleSaveGrades = async () => {
-    if (!selectedClassId || !activityName.trim() || students.length === 0) {
-      setSaveStatus({ type: 'error', message: 'Silakan isi Nama Aktivitas dan pastikan siswa terdaftar.' });
-      return;
-    }
-    setSaving(true);
-    setSaveStatus({ type: '', message: '' });
-
-    const records = students.map((s) => ({
-      nis: s.nis,
-      nilai: grades[s.nis] ?? 0,
-      catatan: notes[s.nis] || ''
-    }));
-
-    try {
-      const response = await fetch('/api/nilai', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeader()
-        },
-        body: JSON.stringify({
-          kelas_id: selectedClassId,
-          nama_aktivitas: activityName.trim(),
-          tanggal: activityDate,
-          kkm,
-          records
-        })
+  const onHistoryDetailSelected = (session: NilaiHistoryRecord) => {
+    loadHistoryDetails(session, (sess, details) => {
+      setEditActivityName(sess.nama_aktivitas);
+      setEditActivityDate(sess.tanggal);
+      setEditKkm(sess.kkm ?? 75);
+      
+      const tempGrades: Record<string, number> = {};
+      const tempNotes: Record<string, string> = {};
+      details.forEach((det: NilaiDetailRecord) => {
+        tempGrades[det.siswa_nis] = det.nilai;
+        tempNotes[det.siswa_nis] = det.catatan || '';
       });
-
-      const resData = await response.json();
-      if (response.ok) {
-        setSaveStatus({
-          type: 'success',
-          message: 'Laporan Nilai & Pencapaian KKM berhasil diposkan ke database SQLite!'
-        });
-        loadHistory(selectedClassId);
-      } else {
-        setSaveStatus({
-          type: 'error',
-          message: resData.error || 'Terjadi kesalahan saat menyimpan nilai.'
-        });
-      }
-    } catch (error: any) {
-      setSaveStatus({
-        type: 'error',
-        message: `Gagal mengirim data: ${error.message}`
-      });
-    } finally {
-      setSaving(false);
-    }
+      setEditGrades(tempGrades);
+      setEditNotes(tempNotes);
+    });
   };
 
-  const loadHistoryDetails = async (session: NilaiHistoryRecord) => {
-    setSelectedHistorySession(session);
-    setLoadingDetails(true);
-    setIsEditing(false); // Reset edit state on switch
-    try {
-      const res = await fetch(`/api/nilai-detail/${session.id}`, { headers: getAuthHeader() });
-      if (res.ok) {
-        const data = await res.json();
-        setHistoryDetails(data);
-        
-        // Initialize edit states
-        setEditActivityName(session.nama_aktivitas);
-        setEditActivityDate(session.tanggal);
-        setEditKkm(session.kkm ?? 75);
-        
-        const tempGrades: Record<string, number> = {};
-        const tempNotes: Record<string, string> = {};
-        data.forEach((det: NilaiDetailRecord) => {
-          tempGrades[det.siswa_nis] = det.nilai;
-          tempNotes[det.siswa_nis] = det.catatan || '';
-        });
-        setEditGrades(tempGrades);
-        setEditNotes(tempNotes);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoadingDetails(false);
-    }
-  };
-
-  const handleUpdateGrades = async () => {
-    if (!selectedHistorySession) return;
+  const onUpdateGradesClick = () => {
     if (!editActivityName.trim()) {
       showAlert("Nama aktivitas wajib diisi!", "Validasi Form", "warning");
       return;
     }
-
-    setUpdating(true);
-    const records = historyDetails.map((det) => ({
-      nis: det.siswa_nis,
-      nilai: editGrades[det.siswa_nis] ?? 0,
-      catatan: editNotes[det.siswa_nis] || ''
-    }));
-
-    try {
-      const response = await fetch(`/api/nilai/${selectedHistorySession.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeader()
-        },
-        body: JSON.stringify({
-          nama_aktivitas: editActivityName.trim(),
-          tanggal: editActivityDate,
-          kkm: editKkm,
-          records
-        })
-      });
-
-      if (response.ok) {
-        setIsEditing(false);
-        if (selectedClassId) {
-          loadHistory(selectedClassId);
-          // Reload fresh details
-          const resDetail = await fetch(`/api/nilai-detail/${selectedHistorySession.id}`, { headers: getAuthHeader() });
-          if (resDetail.ok) {
-            const freshDetails = await resDetail.json();
-            setHistoryDetails(freshDetails);
-          }
-          // Update selected session info locally
-          setSelectedHistorySession(prev => prev ? {
-            ...prev,
-            nama_aktivitas: editActivityName.trim(),
-            tanggal: editActivityDate,
-            kkm: editKkm,
-          } : null);
-        }
-      } else {
-        const errData = await response.json();
-        showAlert(errData.error || "Gagal memperbarui nilai.", "Kesalahan Simpan", "danger");
-      }
-    } catch (err: any) {
-      showAlert(`Terjadi kesalahan: ${err.message}`, "Kesalahan Sistem", "danger");
-    } finally {
-      setUpdating(false);
-    }
+    handleUpdateGrades(
+      editActivityName,
+      editActivityDate,
+      editKkm,
+      editGrades,
+      editNotes,
+      () => setIsEditing(false),
+      (msg) => showAlert(msg, "Kesalahan Simpan", "danger")
+    );
   };
 
   return (
@@ -514,7 +341,7 @@ export default function NilaiView({
                 })}
 
                 <button
-                  onClick={handleSaveGrades}
+                  onClick={() => handleSaveGrades(activityName, activityDate)}
                   disabled={saving}
                   className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold flex items-center justify-center space-x-2 shadow-lg hover:bg-blue-500 transition cursor-pointer"
                 >
@@ -569,7 +396,7 @@ export default function NilaiView({
                 {history.map((record) => (
                   <div
                     key={record.id}
-                    onClick={() => loadHistoryDetails(record)}
+                    onClick={() => onHistoryDetailSelected(record)}
                     className={`bg-[#161b22] p-4.5 rounded-2xl border cursor-pointer hover:border-slate-700 transition-all ${
                       selectedHistorySession?.id === record.id ? 'border-indigo-500 bg-indigo-500/5' : 'border-slate-800'
                     }`}
@@ -637,7 +464,7 @@ export default function NilaiView({
           editNotes={editNotes}
           setEditNotes={setEditNotes}
           updating={updating}
-          handleUpdateGrades={handleUpdateGrades}
+          handleUpdateGrades={onUpdateGradesClick}
           setWarningMessage={setWarningMessage}
         />
       )}

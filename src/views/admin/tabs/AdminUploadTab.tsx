@@ -1,8 +1,16 @@
+// ============================================================================
+// Nama File : AdminUploadTab.tsx
+// Lokasi    : /src/views/admin/tabs/AdminUploadTab.tsx
+// Peran     : Sub-komponen tab Panel Admin untuk pusat unggah berkas (Spreadsheet)
+//             dan pengoperasian data massal seperti pendaftaran siswa/guru baru.
+// Dependency: react, lucide-react, useMultiSpreadsheetImport
+// ============================================================================
+
 import React, { useState } from 'react';
 import { 
   Upload, Download, CheckCircle2, ShieldAlert, FileSpreadsheet, 
-  Layers, UserCheck, HelpCircle, ArrowRight, GraduationCap, 
-  RotateCcw, Plus, Wrench, Cpu, Activity, Settings, X, Calendar, Users
+  Layers, UserCheck, HelpCircle, GraduationCap, 
+  RotateCcw, Plus, Wrench, Cpu, X, Calendar, Users
 } from 'lucide-react';
 import { AdminTabProps } from '../types';
 import { useMultiSpreadsheetImport } from '../hooks/useMultiSpreadsheetImport';

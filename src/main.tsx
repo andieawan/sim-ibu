@@ -2,6 +2,7 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import { DialogProvider } from './components/DialogProvider.tsx';
+import { SchoolIdentityProvider } from './context/SchoolIdentityContext.tsx';
 import './index.css';
 
 /**
@@ -18,8 +19,10 @@ import './index.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <DialogProvider>
-      <App />
-    </DialogProvider>
+    <SchoolIdentityProvider>
+      <DialogProvider>
+        <App />
+      </DialogProvider>
+    </SchoolIdentityProvider>
   </StrictMode>,
 );

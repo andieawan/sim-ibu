@@ -4,31 +4,22 @@ import {
   HelpCircle, User as UserIcon, BookOpen, ShieldAlert, Sparkles, Star, TrendingDown
 } from 'lucide-react';
 import { Kelas, Pengguna, Jadwal } from '../../types';
+import { useClassStats } from '../../hooks/useClassStats';
 
 import WaliKelasValidasi from './WaliKelasValidasi';
 import WaliKelasCatatan from './WaliKelasCatatan';
-
-interface WaliKelasViewProps {
-  currentUser: Pengguna;
-  classes: Kelas[];
-  onNavigateToTab: (tab: string, classId?: number) => void;
-}
-
-interface StudentStat {
-  nis: string;
-  nama: string;
-  attendance_rate: number;
-  absence_rate: number;
-  average_grade: number;
-}
+import { WaliKelasViewProps } from './types';
 
 export default function WaliKelasView({ currentUser, classes, onNavigateToTab }: WaliKelasViewProps) {
   // Find which class is managed by this user
   const myClasses = classes.filter(c => c.walikelas_id === currentUser.id);
   const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
-  const [studentStats, setStudentStats] = useState<StudentStat[]>([]);
+  
+  const { studentStats, loading: loadingStats } = useClassStats(selectedClassId);
   const [schedules, setSchedules] = useState<Jadwal[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loadingSchedules, setLoadingSchedules] = useState<boolean>(false);
+  const loading = loadingStats || loadingSchedules;
+
   const [activeSubTab, setActiveSubTab] = useState<'siswa' | 'diagnosa' | 'jadwal' | 'validasi' | 'catatan'>('siswa');
 
   useEffect(() => {
@@ -39,20 +30,13 @@ export default function WaliKelasView({ currentUser, classes, onNavigateToTab }:
 
   const activeClass = classes.find(c => c.id === selectedClassId);
 
-  // Fetch Class Stats & Schedules
+  // Fetch Schedules
   useEffect(() => {
     if (!selectedClassId) return;
 
-    const fetchData = async () => {
-      setLoading(true);
+    const fetchSchedules = async () => {
+      setLoadingSchedules(true);
       try {
-        // Fetch class performance stats
-        const statsRes = await fetch(`/api/class-stats/${selectedClassId}`);
-        if (statsRes.ok) {
-          const statsData = await statsRes.json();
-          setStudentStats(statsData);
-        }
-
         // Fetch school-wide schedules and filter for this class
         const schedulesRes = await fetch('/api/jadwal');
         if (schedulesRes.ok) {
@@ -60,13 +44,13 @@ export default function WaliKelasView({ currentUser, classes, onNavigateToTab }:
           setSchedules(schedData.filter(s => s.kelas_id === selectedClassId));
         }
       } catch (err) {
-        console.error('Error fetching Wali Kelas data:', err);
+        console.error('Error fetching Wali Kelas schedules:', err);
       } finally {
-        setLoading(false);
+        setLoadingSchedules(false);
       }
     };
 
-    fetchData();
+    fetchSchedules();
   }, [selectedClassId]);
 
   if (myClasses.length === 0) {

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { School, Layers, Upload, Download, Users, Trash2, ArrowRight, CheckCircle2, UserPlus, Info, Calendar, UserX, UserCheck, BarChart3 } from 'lucide-react';
 import { Kelas, Siswa, Pengguna, Jadwal } from '../../types';
 import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar, Line } from 'recharts';
-import ProfilView from './ProfilView';
+import ProfilView from '../profile/ProfilView';
 import WaliKelasView from '../wali-kelas/WaliKelasView';
 import HomeSekolahTab from './tabs/HomeSekolahTab';
 import HomeWaliKelasTab from './tabs/HomeWaliKelasTab';
@@ -11,6 +11,7 @@ import HomeKelasTab from './tabs/HomeKelasTab';
 import HomeStatistikTab from './tabs/HomeStatistikTab';
 import * as XLSX from 'xlsx';
 import { useDialog } from '../../components/DialogProvider';
+import { useClassStats } from '../../hooks/useClassStats';
 
 interface HomeViewProps {
   currentUser: Pengguna;
@@ -56,13 +57,7 @@ export default function HomeView({
   const [selectedClassForView, setSelectedClassForView] = useState<number | null>(null);
   const [siswaListForView, setSiswaListForView] = useState<Siswa[]>([]);
   const [loadingSiswa, setLoadingSiswa] = useState<boolean>(false);
-  const [classStats, setClassStats] = useState<Array<{
-    name: string;
-    fullName: string;
-    'Kehadiran (%)': number;
-    'Tugas Kosong': number;
-  }>>([]);
-  const [loadingStats, setLoadingStats] = useState<boolean>(false);
+  const { classStats, loading: loadingStats, refresh: refreshClassStats } = useClassStats(selectedClassForView);
 
   // Schedules state for home view
   const [schedules, setSchedules] = useState<Jadwal[]>([]);
@@ -258,7 +253,6 @@ export default function HomeView({
   const handleViewSiswa = async (classId: number) => {
     setSelectedClassForView(classId);
     setLoadingSiswa(true);
-    setLoadingStats(true);
 
     try {
       const res = await fetch(`/api/siswa/${classId}`);
@@ -266,26 +260,10 @@ export default function HomeView({
         const data = await res.json();
         setSiswaListForView(data);
       }
-
-      const statsRes = await fetch(`/api/class-stats/${classId}`);
-      if (statsRes.ok) {
-        const statsData = await statsRes.json();
-        const mapped = statsData.map((d: any) => ({
-          name: d.nama.split(' ').slice(0, 2).join(' '),
-          fullName: d.nama,
-          'Rasio Absen (%)': d.absence_rate,
-          'Rata-rata Nilai': d.average_grade
-        }));
-        setClassStats(mapped);
-      } else {
-        setClassStats([]);
-      }
     } catch (err) {
-      console.error('Error fetching class stats:', err);
-      setClassStats([]);
+      console.error('Error fetching class siswa:', err);
     } finally {
       setLoadingSiswa(false);
-      setLoadingStats(false);
     }
   };
 
@@ -302,19 +280,7 @@ export default function HomeView({
       const res = await fetch(`/api/siswa/${nis}`, { method: 'DELETE' });
       if (res.ok) {
         setSiswaListForView(prev => prev.map(s => s.nis === nis ? { ...s, status_aktif: 0 } : s));
-        if (selectedClassForView) {
-          const statsRes = await fetch(`/api/class-stats/${selectedClassForView}`);
-          if (statsRes.ok) {
-            const statsData = await statsRes.json();
-            const mapped = statsData.map((d: any) => ({
-              name: d.nama.split(' ').slice(0, 2).join(' '),
-              fullName: d.nama,
-              'Kehadiran (%)': d.attendance_rate,
-              'Tugas Kosong': d.missing_grades
-            }));
-            setClassStats(mapped);
-          }
-        }
+        refreshClassStats();
       }
     } catch (error) {
       console.error(error);
@@ -340,19 +306,7 @@ export default function HomeView({
       });
       if (res.ok) {
         setSiswaListForView(prev => prev.map(s => s.nis === nis ? { ...s, status_aktif: 1 } : s));
-        if (selectedClassForView) {
-          const statsRes = await fetch(`/api/class-stats/${selectedClassForView}`);
-          if (statsRes.ok) {
-            const statsData = await statsRes.json();
-            const mapped = statsData.map((d: any) => ({
-              name: d.nama.split(' ').slice(0, 2).join(' '),
-              fullName: d.nama,
-              'Kehadiran (%)': d.attendance_rate,
-              'Tugas Kosong': d.missing_grades
-            }));
-            setClassStats(mapped);
-          }
-        }
+        refreshClassStats();
       }
     } catch (error) {
       console.error(error);

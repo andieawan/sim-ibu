@@ -13,116 +13,41 @@ import { useDialog } from '../../components/DialogProvider';
 //                serta mengelola penerbitan Surat Pemanggilan, Teguran, dan Peringatan.
 // ============================================================================
 
-interface BkViewProps {
-  currentUser: Pengguna;
-}
+import { useBkDashboard } from './hooks/useBkDashboard';
+import { BkViewProps } from './types';
 
-export default function BkView({ currentUser }: BkViewProps) {
+export default function BkView({ currentUser, schoolIdentity }: BkViewProps) {
   const { showAlert, showConfirm } = useDialog();
   const [activeTab, setActiveTab] = useState<'rekap' | 'monitoring' | 'surat'>('rekap');
-  const [catatan, setCatatan] = useState<CatatanWaliKelas[]>([]);
-  const [siswaList, setSiswaList] = useState<Siswa[]>([]);
-  const [kelasList, setKelasList] = useState<any[]>([]);
-  const [suratList, setSuratList] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [loadingSubmit, setLoadingSubmit] = useState(false);
-  const [filterKategori, setFilterKategori] = useState<string>('Semua');
 
-  // State untuk form tambah catatan baru oleh Guru BK
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [newCatatan, setNewCatatan] = useState({
-    siswa_nis: '',
-    kategori: 'Konseling', // Default ke Konseling untuk BK
-    catatan: ''
-  });
-
-  // Memuat data catatan bimbingan dan daftar siswa
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      // Mengambil seluruh catatan bimbingan/kasus siswa
-      const resCatatan = await fetch('/api/catatan_walikelas');
-      if (resCatatan.ok) {
-        const data = await resCatatan.json();
-        setCatatan(data);
-      }
-
-      // Mengambil daftar seluruh siswa untuk keperluan dropdown form BK
-      const resSiswa = await fetch('/api/siswa-all');
-      if (resSiswa.ok) {
-        const data = await resSiswa.json();
-        setSiswaList(data);
-      }
-
-      // Mengambil daftar seluruh kelas
-      const resKelas = await fetch('/api/kelas');
-      if (resKelas.ok) {
-        const data = await resKelas.json();
-        setKelasList(data);
-      }
-
-      // Mengambil data surat BK
-      const resSurat = await fetch('/api/surat_bk');
-      if (resSurat.ok) {
-        const data = await resSurat.json();
-        setSuratList(data);
-      }
-    } catch (e) {
-      console.error('Gagal memuat data di panel BK:', e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, [activeTab]);
+  const {
+    catatan,
+    siswaList,
+    kelasList,
+    suratList,
+    loading,
+    loadingSubmit,
+    filterKategori,
+    setFilterKategori,
+    showAddForm,
+    setShowAddForm,
+    newCatatan,
+    setNewCatatan,
+    handleSubmitCatatan,
+    handleDeleteCatatan: deleteCatatanHook
+  } = useBkDashboard(activeTab, currentUser);
 
   // Handler pengiriman catatan baru dari Guru BK
-  const handleSubmitCatatan = async (e: React.FormEvent) => {
+  const onSubmitCatatanForm = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCatatan.siswa_nis || !newCatatan.catatan) {
-      showAlert('Mohon lengkapi semua bidang form.', 'Formulir Belum Lengkap', 'warning');
-      return;
-    }
-
-    // Temukan data siswa terpilih untuk memperoleh kelas_id miliknya
-    const selectedSiswa = siswaList.find(s => s.nis === newCatatan.siswa_nis);
-    if (!selectedSiswa) {
-      showAlert('Siswa tidak valid.', 'Siswa Tidak Valid', 'danger');
-      return;
-    }
-
-    setLoadingSubmit(true);
-    try {
-      const res = await fetch('/api/catatan_walikelas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          siswa_nis: newCatatan.siswa_nis,
-          kelas_id: selectedSiswa.kelas_id,
-          guru_id: currentUser.id,
-          kategori: newCatatan.kategori,
-          catatan: newCatatan.catatan
-        })
-      });
-
-      if (res.ok) {
-        setShowAddForm(false);
-        setNewCatatan({ siswa_nis: '', kategori: 'Konseling', catatan: '' });
-        fetchData();
-      } else {
-        showAlert('Gagal menyimpan catatan baru.', 'Kesalahan Simpan', 'danger');
-      }
-    } catch (error) {
-      console.error('Error saat menyimpan catatan:', error);
-    } finally {
-      setLoadingSubmit(false);
-    }
+    handleSubmitCatatan(
+      () => {},
+      (msg, title, type) => showAlert(msg, title || 'Kesalahan', type || 'danger')
+    );
   };
 
   // Handler penghapusan catatan bimbingan
-  const handleDeleteCatatan = async (id: number) => {
+  const onDeleteCatatanClick = async (id: number) => {
     const confirmed = await showConfirm(
       'Apakah Anda yakin ingin menghapus catatan bimbingan ini?',
       'Hapus Catatan',
@@ -131,18 +56,11 @@ export default function BkView({ currentUser }: BkViewProps) {
       'Batal'
     );
     if (!confirmed) return;
-    try {
-      const res = await fetch(`/api/catatan_walikelas/${id}`, {
-        method: 'DELETE'
-      });
-      if (res.ok) {
-        fetchData();
-      } else {
-        showAlert('Gagal menghapus catatan bimbingan.', 'Kesalahan Hapus', 'danger');
-      }
-    } catch (e) {
-      console.error(e);
-    }
+    deleteCatatanHook(
+      id,
+      () => {},
+      (msg) => showAlert(msg, 'Kesalahan Hapus', 'danger')
+    );
   };
 
   const filteredCatatan = catatan.filter(c => 
@@ -555,7 +473,7 @@ export default function BkView({ currentUser }: BkViewProps) {
 
           {/* Form Tambah Catatan Khusus oleh Guru BK */}
           {showAddForm && (
-            <form onSubmit={handleSubmitCatatan} className="bg-[#161b22] p-6 rounded-3xl border border-slate-800 shadow-xl space-y-4">
+            <form onSubmit={onSubmitCatatanForm} className="bg-[#161b22] p-6 rounded-3xl border border-slate-800 shadow-xl space-y-4">
               <h6 className="font-bold text-slate-200 text-sm mb-2 border-b border-slate-800 pb-3 flex items-center gap-2">
                 <BookOpen className="w-4 h-4 text-blue-400" />
                 <span>Buat Catatan Kasus / Bimbingan Konseling Baru</span>
@@ -693,7 +611,7 @@ export default function BkView({ currentUser }: BkViewProps) {
                       {/* Izinkan Guru BK menghapus catatan yang dibuatnya sendiri atau semua jika admin/BK berkuasa */}
                       {(c.guru_id === currentUser.id || currentUser.role === 'admin' || currentUser.role === 'bk') && (
                         <button
-                          onClick={() => handleDeleteCatatan(c.id)}
+                          onClick={() => onDeleteCatatanClick(c.id)}
                           className="w-7 h-7 flex items-center justify-center rounded-lg bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-colors opacity-0 group-hover:opacity-100"
                           title="Hapus Catatan Laporan"
                         >
@@ -710,7 +628,7 @@ export default function BkView({ currentUser }: BkViewProps) {
       )}
 
       {activeTab === 'surat' && (
-        <BkSurat currentUser={currentUser} />
+        <BkSurat currentUser={currentUser} schoolIdentity={schoolIdentity} />
       )}
     </div>
   );

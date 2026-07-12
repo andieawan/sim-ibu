@@ -1,7 +1,17 @@
+// ============================================================================
+// Nama File : AbsensiView.tsx
+// Lokasi    : /src/views/guru/AbsensiView.tsx
+// Peran     : Halaman absensi guru untuk mencatat presensi harian siswa (Hadir, Izin, Sakit, Alfa)
+//             berdasarkan kelas dan tanggal tertentu, serta memantau riwayat presensi.
+// Dependency: react, lucide-react, formatIndoDate, types
+// ============================================================================
+
 import { useState, useEffect } from 'react';
 import { Calendar, UserCheck, CheckCircle2, History, Check, ShieldAlert, ArrowLeft, Loader2, Save, Edit } from 'lucide-react';
 import { Kelas, Siswa } from '../../types';
 import { formatIndoDate } from '../../utils';
+import { getSiswaByKelas } from '../../api/siswa';
+import { getAbsensiHistory, getAbsensiDetail, saveAbsensi } from '../../api/absensi';
 
 interface AbsensiViewProps {
   classes: Kelas[];
@@ -36,19 +46,6 @@ export default function AbsensiView({
   onClassChange,
 }: AbsensiViewProps) {
   const isLight = typeof document !== 'undefined' && document.documentElement.classList.contains('theme-light');
-  const getAuthHeader = () => {
-    try {
-      // Aliran Data: Mengambil data token pengguna (simibu_user) dari localStorage atau sessionStorage untuk otentikasi API Absensi Guru
-      const saved = localStorage.getItem('simibu_user') || sessionStorage.getItem('simibu_user');
-      if (saved) {
-        const u = JSON.parse(saved);
-        if (u && u.token) {
-          return { 'Authorization': `Bearer ${u.token}` };
-        }
-      }
-    } catch (_) {}
-    return {};
-  };
 
   const [students, setStudents] = useState<Siswa[]>([]);
   const [loadingStudents, setLoadingStudents] = useState<boolean>(false);
@@ -92,19 +89,16 @@ export default function AbsensiView({
     setLoadingStudents(true);
     setSaveStatus({ type: '', message: '' });
     try {
-      const res = await fetch(`/api/siswa/${classId}`, { headers: getAuthHeader() });
-      if (res.ok) {
-        const data: Siswa[] = await res.json();
-        const activeStudents = data.filter(s => s.status_aktif !== 0);
-        setStudents(activeStudents);
-        
-        // Let's not run override straight away here, because loadHistory will run and determine if there's already an existing record on the attendanceDate.
-        const initialMap: typeof attendanceStatuses = {};
-        activeStudents.forEach(s => {
-          initialMap[s.nis] = 'Hadir';
-        });
-        setAttendanceStatuses(initialMap);
-      }
+      const data = await getSiswaByKelas(classId);
+      const activeStudents = data.filter(s => s.status_aktif !== 0);
+      setStudents(activeStudents);
+      
+      // Let's not run override straight away here, because loadHistory will run and determine if there's already an existing record on the attendanceDate.
+      const initialMap: typeof attendanceStatuses = {};
+      activeStudents.forEach(s => {
+        initialMap[s.nis] = 'Hadir';
+      });
+      setAttendanceStatuses(initialMap);
     } catch (err) {
       console.error(err);
     } finally {
@@ -115,31 +109,25 @@ export default function AbsensiView({
   const loadHistory = async (classId: number, targetDate?: string) => {
     setLoadingHistory(true);
     try {
-      const res = await fetch(`/api/absensi-history/${classId}`, { headers: getAuthHeader() });
-      if (res.ok) {
-        const rawData = await res.json();
-        const data = rawData.map((h: any) => ({ ...h, tanggal: h.tanggal ? h.tanggal.replace(/\//g, '-') : '' }));
-        setHistory(data);
-        
-        // Check if there is an existing record on the targeted date
-        const queryDate = targetDate || attendanceDate;
-        const existing = data.find((h: any) => h.tanggal === queryDate);
-        if (existing) {
-          setIsEditingSession(true);
-          setEditingSessionId(existing.id);
-          const detailRes = await fetch(`/api/absensi-detail/${existing.id}`, { headers: getAuthHeader() });
-          if (detailRes.ok) {
-            const detailData = await detailRes.json();
-            const statusMap: Record<string, 'Hadir' | 'Izin' | 'Sakit' | 'Alfa'> = {};
-            detailData.forEach((det: any) => {
-              statusMap[det.siswa_nis] = det.status;
-            });
-            setAttendanceStatuses(statusMap);
-          }
-        } else {
-          setIsEditingSession(false);
-          setEditingSessionId(null);
-        }
+      const rawData = await getAbsensiHistory(classId);
+      const data = rawData.map((h: any) => ({ ...h, tanggal: h.tanggal ? h.tanggal.replace(/\//g, '-') : '' }));
+      setHistory(data);
+      
+      // Check if there is an existing record on the targeted date
+      const queryDate = targetDate || attendanceDate;
+      const existing = data.find((h: any) => h.tanggal === queryDate);
+      if (existing) {
+        setIsEditingSession(true);
+        setEditingSessionId(existing.id);
+        const detailData = await getAbsensiDetail(existing.id);
+        const statusMap: Record<string, 'Hadir' | 'Izin' | 'Sakit' | 'Alfa'> = {};
+        detailData.forEach((det: any) => {
+          statusMap[det.siswa_nis] = det.status;
+        });
+        setAttendanceStatuses(statusMap);
+      } else {
+        setIsEditingSession(false);
+        setEditingSessionId(null);
       }
     } catch (err) {
       console.error(err);
@@ -158,19 +146,16 @@ export default function AbsensiView({
       setIsEditingSession(true);
       setEditingSessionId(existing.id);
       try {
-        const res = await fetch(`/api/absensi-detail/${existing.id}`, { headers: getAuthHeader() });
-        if (res.ok) {
-          const data = await res.json();
-          const statusMap: Record<string, 'Hadir' | 'Izin' | 'Sakit' | 'Alfa'> = {};
-          data.forEach((det: any) => {
-            statusMap[det.siswa_nis] = det.status;
-          });
-          setAttendanceStatuses(statusMap);
-          setSaveStatus({
-            type: 'success',
-            message: `Memuat data absensi tanggal ${formatIndoDate(newDate)}. Anda berada dalam Mode Edit Pembetulan.`
-          });
-        }
+        const data = await getAbsensiDetail(existing.id);
+        const statusMap: Record<string, 'Hadir' | 'Izin' | 'Sakit' | 'Alfa'> = {};
+        data.forEach((det: any) => {
+          statusMap[det.siswa_nis] = det.status;
+        });
+        setAttendanceStatuses(statusMap);
+        setSaveStatus({
+          type: 'success',
+          message: `Memuat data absensi tanggal ${formatIndoDate(newDate)}. Anda berada dalam Mode Edit Pembetulan.`
+        });
       } catch (err) {
         console.error(err);
       }
@@ -215,34 +200,19 @@ export default function AbsensiView({
     }));
 
     try {
-      const response = await fetch('/api/absensi', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeader()
-        },
-        body: JSON.stringify({
-          kelas_id: selectedClassId,
-          tanggal: attendanceDate,
-          records
-        })
+      await saveAbsensi({
+        kelas_id: selectedClassId,
+        tanggal: attendanceDate,
+        records
       });
 
-      const resData = await response.json();
-      if (response.ok) {
-        setSaveStatus({
-          type: 'success',
-          message: isEditingSession 
-            ? 'Perubahan Absensi berhasil disimpan dan disinkronisasikan ke database!'
-            : 'Laporan Absensi berhasil disimpan dan disematkan ke database SQLite!'
-        });
-        loadHistory(selectedClassId, attendanceDate);
-      } else {
-        setSaveStatus({
-          type: 'error',
-          message: resData.error || 'Terjadi kesalahan saat menyimpan absensi.'
-        });
-      }
+      setSaveStatus({
+        type: 'success',
+        message: isEditingSession 
+          ? 'Perubahan Absensi berhasil disimpan dan disinkronisasikan ke database!'
+          : 'Laporan Absensi berhasil disimpan dan disematkan ke database SQLite!'
+      });
+      loadHistory(selectedClassId, attendanceDate);
     } catch (error: any) {
       setSaveStatus({
         type: 'error',
@@ -257,11 +227,8 @@ export default function AbsensiView({
     setSelectedHistorySession(session);
     setLoadingDetails(true);
     try {
-      const res = await fetch(`/api/absensi-detail/${session.id}`, { headers: getAuthHeader() });
-      if (res.ok) {
-        const data = await res.json();
-        setHistoryDetails(data);
-      }
+      const data = await getAbsensiDetail(session.id);
+      setHistoryDetails(data);
     } catch (err) {
       console.error(err);
     } finally {

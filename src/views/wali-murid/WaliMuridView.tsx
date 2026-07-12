@@ -1,93 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { 
   Users, CheckCircle2, AlertTriangle, 
   Clock, RefreshCw, HeartPulse, ShieldCheck, ArrowLeft, Loader2
 } from 'lucide-react';
-import { Pengguna } from '../../types';
 import { formatIndoDate } from '../../utils';
-
-interface WaliMuridViewProps {
-  currentUser: Pengguna;
-  theme?: 'light' | 'dark';
-}
-
-interface ClassData {
-  classInfo: {
-    id: number;
-    nama_kelas: string;
-    sekolah: string;
-    nama_walikelas?: string | null;
-    total_siswa: number;
-  };
-  attendance: Array<{
-    id: number;
-    tanggal: string;
-    count_hadir: number;
-    count_izin: number;
-    count_sakit: number;
-    count_alfa: number;
-  }>;
-}
+import { WaliMuridViewProps } from './types';
+import { useWaliMuridMonitoring } from './hooks/useWaliMuridMonitoring';
 
 export default function WaliMuridView({ currentUser, theme = 'dark' }: WaliMuridViewProps) {
-  const [data, setData] = useState<ClassData | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const [selectedAbsensiId, setSelectedAbsensiId] = useState<number | null>(null);
-  const [sessionDetails, setSessionDetails] = useState<Array<any>>([]);
-  const [loadingDetails, setLoadingDetails] = useState<boolean>(false);
-
-  const fetchMonitoringData = async () => {
-    if (!currentUser.kelas_id) {
-      setError('Akun Anda belum terhubung dengan kelas mana pun. Hubungi Administrator Sekolah.');
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/wali-murid/monitoring/${currentUser.kelas_id}`, {
-        headers: {
-          'Authorization': `Bearer ${currentUser.token || ''}`
-        }
-      });
-      if (!res.ok) {
-        throw new Error('Gagal memuat data monitoring kelas anak Anda.');
-      }
-      const jsonData = await res.json();
-      setData(jsonData);
-    } catch (err: any) {
-      setError(err.message || 'Terjadi kesalahan saat memproses data.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchMonitoringData();
-  }, [currentUser.kelas_id]);
-
-  const handleSessionClick = async (absensiId: number) => {
-    setSelectedAbsensiId(absensiId);
-    setLoadingDetails(true);
-    try {
-      const res = await fetch(`/api/absensi-detail/${absensiId}`, {
-        headers: {
-          'Authorization': `Bearer ${currentUser.token || ''}`
-        }
-      });
-      if (res.ok) {
-        const jsonData = await res.json();
-        setSessionDetails(jsonData);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoadingDetails(false);
-    }
-  };
+  const {
+    data,
+    loading,
+    error,
+    selectedAbsensiId,
+    setSelectedAbsensiId,
+    sessionDetails,
+    loadingDetails,
+    fetchMonitoringData,
+    handleSessionClick
+  } = useWaliMuridMonitoring(currentUser);
 
   if (loading) {
     return (

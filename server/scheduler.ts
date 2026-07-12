@@ -1,10 +1,23 @@
+// ============================================================================
+// Nama File : scheduler.ts
+// Lokasi    : /server/scheduler.ts
+// Peran     : Mengelola jadwal pencadangan otomatis data sekolah (Guru, Kelas, 
+//             Siswa, Presensi, Nilai, Monitoring BK) ke Google Sheets secara berkala.
+//             Menggunakan koordinat waktu zona Asia/Jakarta (WIB) untuk sinkronisasi mingguan.
+// Dependency: fs, path, fetch
+// ============================================================================
+
 import fs from 'fs';
 import path from 'path';
 import { dbAll } from './db';
 
 const schoolIdentityPath = path.resolve(process.cwd(), 'school_identity.json');
 
-// Helper to get time details in Asia/Jakarta timezone (WIB)
+// ============================================================================
+// FUNGSI: getJakartaTime()
+// Deskripsi : Mendapatkan detail waktu saat ini di zona waktu Asia/Jakarta (WIB).
+// Pengembalian: Objek berisi nama hari, jam, menit, detik, dan string tanggal ISO.
+// ============================================================================
 export function getJakartaTime() {
   const now = new Date();
   const formatter = new Intl.DateTimeFormat('en-US', {
@@ -20,23 +33,31 @@ export function getJakartaTime() {
   const getVal = (type: string) => parts.find(p => p.type === type)?.value || '';
   
   return {
-    weekday: getVal('weekday'), // e.g. "Saturday"
+    weekday: getVal('weekday'), // Contoh: "Saturday"
     hour: parseInt(getVal('hour'), 10),
     minute: parseInt(getVal('minute'), 10),
     second: parseInt(getVal('second'), 10),
-    dateString: now.toISOString().split('T')[0] // For daily deduplication
+    dateString: now.toISOString().split('T')[0] // Digunakan untuk deduplikasi backup harian
   };
 }
 
-// Core Google Sheets Backup Function
+// ============================================================================
+// FUNGSI: executeBackupToGoogle()
+// Parameter : accessToken - Token otorisasi Google OAuth2.
+// Deskripsi : Melakukan ekstraksi seluruh data dari database lokal (SQLite/Postgres)
+//             dan menulisnya kembali ke tab-tab terpisah di Google Spreadsheet
+//             menggunakan Google Sheets API v4.
+// Pengembalian: ID dan URL lembar kerja spreadsheet yang dihasilkan.
+// ============================================================================
 export async function executeBackupToGoogle(accessToken: string): Promise<{ spreadsheetId: string; spreadsheetUrl: string }> {
   console.log('[Backup Engine] Starting backup queries...');
   
-  // 1. Fetch all required data from SQLite
+  // 1. Ambil data mentah dari SQLite untuk seluruh entitas penting
   const pengguna = await dbAll('SELECT id, username, nama, role, nip, jabatan, is_cuti FROM pengguna');
   const kelas = await dbAll('SELECT id, nama_kelas, sekolah, walikelas_id, jurusan FROM kelas');
   const siswa = await dbAll('SELECT nis, nama, jenis_kelamin, kelas_id, status_aktif FROM siswa');
   
+  // Query kompleks: Menggabungkan detail kehadiran siswa dengan rincian kelas dan data tanggal absensi harian
   const absensiRecords = await dbAll(`
     SELECT a.tanggal, k.nama_kelas, s.nis, s.nama, d.status, d.updated_at
     FROM detail_absensi d
@@ -46,6 +67,7 @@ export async function executeBackupToGoogle(accessToken: string): Promise<{ spre
     ORDER BY a.tanggal DESC, k.nama_kelas ASC, s.nama ASC
   `);
   
+  // Query kompleks: Menghubungkan perolehan nilai siswa, batas KKM, dan data tugas harian kelas
   const nilaiRecords = await dbAll(`
     SELECT act.nama_aktivitas, act.tanggal, k.nama_kelas, s.nis, s.nama, act.kkm, dn.nilai, dn.catatan
     FROM detail_nilai dn
@@ -55,6 +77,7 @@ export async function executeBackupToGoogle(accessToken: string): Promise<{ spre
     ORDER BY act.tanggal DESC, act.nama_aktivitas ASC, s.nama ASC
   `);
 
+  // Query kompleks: Menggabungkan catatan wali kelas dengan data siswa, kelas, dan guru
   const catatanRecords = await dbAll(`
     SELECT c.id, c.tanggal, c.siswa_nis, s.nama as nama_siswa, k.nama_kelas, p.nama as nama_guru, c.kategori, c.catatan
     FROM catatan_walikelas c
@@ -64,6 +87,7 @@ export async function executeBackupToGoogle(accessToken: string): Promise<{ spre
     ORDER BY c.tanggal DESC, c.id DESC
   `);
 
+  // Query kompleks: Menggabungkan rincian surat BK dengan relasi profil siswa dan guru bimbingan konseling
   const suratRecords = await dbAll(`
     SELECT sb.id, sb.tanggal, sb.siswa_nis, s.nama as nama_siswa, p.nama as nama_guru, sb.jenis_surat, sb.keterangan, sb.status
     FROM surat_bk sb
@@ -74,7 +98,7 @@ export async function executeBackupToGoogle(accessToken: string): Promise<{ spre
 
   console.log(`[Backup Engine] Data fetched: ${pengguna.length} Guru, ${kelas.length} Kelas, ${siswa.length} Siswa, ${absensiRecords.length} Presensi, ${nilaiRecords.length} Nilai, ${catatanRecords.length} Catatan Monitoring, ${suratRecords.length} Surat BK.`);
 
-  // Map database structures to spreadsheets rows
+  // Transformasikan struktur database relasional menjadi format baris array matriks untuk Google Sheets
   const guruRows = pengguna.map((p, idx) => [
     idx + 1, p.id, p.username, p.nama, p.role, p.nip || '-', p.jabatan || '-', p.is_cuti ? 'Ya' : 'Tidak'
   ]);
@@ -107,7 +131,7 @@ export async function executeBackupToGoogle(accessToken: string): Promise<{ spre
     idx + 1, r.tanggal, r.siswa_nis || '-', r.nama_siswa || '-', r.nama_guru || '-', r.jenis_surat || '-', r.keterangan || '-', r.status || 'Tercetak'
   ]);
 
-  // 2. Read spreadsheet ID from identity
+  // 2. Baca ID spreadsheet Google Sheets yang sudah tersimpan
   const data = fs.existsSync(schoolIdentityPath) ? JSON.parse(fs.readFileSync(schoolIdentityPath, 'utf8')) : {};
   let spreadsheetId = data.google_backup_spreadsheet_id;
 
@@ -126,7 +150,7 @@ export async function executeBackupToGoogle(accessToken: string): Promise<{ spre
     '7. Surat Panggilan BK'
   ];
 
-  // Try clearing existing spreadsheet if it exists
+  // Membersihkan atau membuat ulang tab spreadsheet jika ID spreadsheet sudah ada
   if (spreadsheetId) {
     try {
       console.log(`[Backup Engine] Existing Spreadsheet detected (${spreadsheetId}). Checking sheets...`);
@@ -174,7 +198,7 @@ export async function executeBackupToGoogle(accessToken: string): Promise<{ spre
     }
   }
 
-  // Create fresh spreadsheet if needed
+  // Membuat berkas Google Spreadsheet baru jika belum pernah terdaftar atau jika lembar kerja lama rusak
   if (!spreadsheetId) {
     console.log('[Backup Engine] Creating a brand new Google Spreadsheet...');
     const createRes = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
@@ -196,13 +220,13 @@ export async function executeBackupToGoogle(accessToken: string): Promise<{ spre
     const createdSheet = await createRes.json();
     spreadsheetId = createdSheet.spreadsheetId;
     
-    // Persist new spreadsheet ID
+    // Simpan ID spreadsheet yang baru dibuat ke file identitas sekolah
     data.google_backup_spreadsheet_id = spreadsheetId;
     fs.writeFileSync(schoolIdentityPath, JSON.stringify(data, null, 2), 'utf8');
     console.log(`[Backup Engine] New Google Spreadsheet created successfully with ID: ${spreadsheetId}`);
   }
 
-  // 3. Batch Update data to tabs
+  // 3. Menulis ulang seluruh data sekolah secara massal (Batch Update) ke tab-tab spreadsheet terkait
   console.log(`[Backup Engine] Writing backup data to Google Sheets tabs...`);
   const updateRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`, {
     method: 'POST',
@@ -268,7 +292,7 @@ export async function executeBackupToGoogle(accessToken: string): Promise<{ spre
     throw new Error(errDetail.error?.message || 'Gagal mengisi data ke Google Spreadsheet');
   }
 
-  // Update success metadata in identity file
+  // Perbarui metadata waktu pencadangan terakhir yang berhasil di file identitas sekolah
   const freshData = fs.existsSync(schoolIdentityPath) ? JSON.parse(fs.readFileSync(schoolIdentityPath, 'utf8')) : {};
   freshData.google_backup_spreadsheet_id = spreadsheetId;
   freshData.last_backup_time = new Date().toISOString();
@@ -285,24 +309,29 @@ export async function executeBackupToGoogle(accessToken: string): Promise<{ spre
 let isBackupRunning = false;
 let lastBackupDate = '';
 
-// Check and trigger scheduled backup (every Saturday at 23:55 WIB)
+// ============================================================================
+// FUNGSI: checkAndRunScheduledBackup()
+// Deskripsi : Memeriksa kelayakan dan mengeksekusi pencadangan otomatis harian/mingguan.
+// Aturan Bisnis: Pencadangan otomatis berjalan hanya setiap hari Sabtu jam 23:55 WIB
+//                bila fitur penjadwalan diaktifkan & token otorisasi tersedia.
+// ============================================================================
 export async function checkAndRunScheduledBackup() {
   if (isBackupRunning) return;
   
   try {
     const data = fs.existsSync(schoolIdentityPath) ? JSON.parse(fs.readFileSync(schoolIdentityPath, 'utf8')) : {};
     
-    // Check if scheduled backups are enabled and we have a token
+    // Periksa apakah pencadangan terjadwal diaktifkan dan memiliki token Google yang valid
     if (!data.backup_schedule_enabled || !data.google_backup_token) {
       return;
     }
 
     const timeInfo = getJakartaTime();
     
-    // Condition: Saturday, Hour: 23, Minute: 55
+    // Aturan Penjadwalan: Hari Sabtu, Pukul 23:55 WIB
     if (timeInfo.weekday === 'Saturday' && timeInfo.hour === 23 && timeInfo.minute === 55) {
       if (lastBackupDate === timeInfo.dateString) {
-        return; // Prevent multiple executions inside the 23:55 minute window
+        return; // Mencegah eksekusi ganda dalam rentang menit yang sama (23:55:00 - 23:55:59)
       }
       
       console.log(`[Backup Scheduler] Saturday 23:55 WIB triggered! Executing automatic backup...`);
@@ -315,7 +344,7 @@ export async function checkAndRunScheduledBackup() {
       } catch (err: any) {
         console.error('[Backup Scheduler] Automatic weekly backup failed:', err);
         
-        // Update backup status as failed
+        // Catat status kegagalan ke berkas identitas sekolah
         const freshData = fs.existsSync(schoolIdentityPath) ? JSON.parse(fs.readFileSync(schoolIdentityPath, 'utf8')) : {};
         freshData.last_backup_status = `Gagal: ${err.message || err}`;
         freshData.last_backup_time = new Date().toISOString();
@@ -329,11 +358,15 @@ export async function checkAndRunScheduledBackup() {
   }
 }
 
-// Start the scheduler loop
+// ============================================================================
+// FUNGSI: startBackupScheduler()
+// Deskripsi : Memulai interval pengecekan berkala scheduler di background Express.
+// Efek       : Melakukan polling status waktu setiap 45 detik.
+// ============================================================================
 export function startBackupScheduler() {
   console.log('[Backup Scheduler] Initialized. Backup schedule runs weekly on Saturdays at 23:55 WIB.');
   
-  // Run checks every 45 seconds to guarantee we hit the 23:55 minute accurately
+  // Melakukan pengecekan setiap 45 detik untuk memastikan momentum jam 23:55 tercapai dengan presisi tinggi
   setInterval(() => {
     checkAndRunScheduledBackup();
   }, 45000);

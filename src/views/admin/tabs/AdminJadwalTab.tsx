@@ -1,9 +1,15 @@
+// ============================================================================
+// Nama File : AdminJadwalTab.tsx
+// Lokasi    : /src/views/admin/tabs/AdminJadwalTab.tsx
+// Peran     : Sub-komponen tab Panel Admin untuk manajemen jadwal pelajaran sekolah (KBM).
+//             Mengatur integrasi guru pengampu, kelas, mata pelajaran, dan waktu mengajar.
+// Dependency: react, lucide-react, AdminTabProps
+// ============================================================================
+
 import React from 'react';
 import { 
-  Users, Key, Plus, Trash2, Shield, Settings, Database, 
-  RotateCcw, CheckCircle2, ShieldAlert, Edit, Save, X, 
-  GraduationCap, Layers, Search, UserCheck, Upload, Download, Info, Calendar,
-  Activity, Cpu, Wrench
+  Users, Plus, Trash2, Database, CheckCircle2, Edit, Save, X, 
+  Layers, Search, Upload, Calendar
 } from 'lucide-react';
 import { AdminTabProps } from '../types';
 import { useMultiSpreadsheetImport } from '../hooks/useMultiSpreadsheetImport';

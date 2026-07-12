@@ -1,7 +1,7 @@
 import path from 'path';
 import Database from 'better-sqlite3';
 
-const dbPath = path.resolve(process.cwd(), 'sekolah.db');
+const dbPath = path.resolve(process.cwd(), 'server', 'data', 'sekolah.db');
 console.log('Connecting to database:', dbPath);
 
 let db: any;

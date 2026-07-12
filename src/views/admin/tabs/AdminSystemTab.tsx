@@ -1,8 +1,17 @@
+// ============================================================================
+// Nama File : AdminSystemTab.tsx
+// Lokasi    : /src/views/admin/tabs/AdminSystemTab.tsx
+// Peran     : Sub-komponen tab Panel Admin untuk konfigurasi sistem dan server.
+//             Mengatur identitas sekolah, integrasi backup Google Drive, diagnostik, 
+//             dan pemeliharaan basis data.
+// Dependency: react, lucide-react, AdminTabProps
+// ============================================================================
+
 import React from 'react';
 import { 
-  Users, Key, Plus, Trash2, Shield, Settings, Database, 
+  Users, Key, Shield, Settings, Database, 
   RotateCcw, CheckCircle2, ShieldAlert, Edit, Save, X, 
-  GraduationCap, Layers, Search, UserCheck, Upload, Download, Info, Calendar,
+  GraduationCap, Search, Upload, Download, Info,
   Activity, Cpu, Wrench, FileSpreadsheet, Link2, Link2Off, Check
 } from 'lucide-react';
 import { AdminTabProps } from '../types';

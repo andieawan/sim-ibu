@@ -1,11 +1,21 @@
+// ============================================================================
+// Nama File : App.tsx
+// Lokasi    : /src/App.tsx
+// Peran     : Komponen root utama aplikasi SIM-IBU di sisi frontend.
+//             Mengelola perutean (routing) antar-view, state otentikasi global,
+//             pengaturan tema antarmuka, modal global, dan floating action button.
+// Dependency: react, lucide-react, motion, SchoolIdentityContext
+// ============================================================================
+
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { Layers, Plus, X, GraduationCap, Sparkles, BookOpen, LogOut, Palette, Sun, Moon, BarChart3, User as UserIcon } from 'lucide-react';
 import { Kelas, Pengguna } from './types';
+import { useSchoolIdentity } from './context/SchoolIdentityContext';
 import Navbar from './components/Navbar';
-import HomeView from './views/common/HomeView';
-import ProfilView from './views/common/ProfilView';
+import HomeView from './views/dashboard/HomeView';
+import ProfilView from './views/profile/ProfilView';
 import Modals from './components/Modals';
-import LoginView from './views/common/LoginView';
+import LoginView from './views/auth/LoginView';
 import ProfileMenu from './components/ProfileMenu';
 import PwaInstall from './components/PwaInstall';
 import { AnimatePresence } from 'motion/react';
@@ -55,16 +65,7 @@ export default function App() {
 
   const [appEnv, setAppEnv] = useState<'dev' | 'pub'>('dev');
 
-  const [schoolIdentity, setSchoolIdentity] = useState({
-    nama_sekolah: 'SMKS Islam Bustanul Ulum',
-    motto: 'SISTEM INFORMASI DAN MANAJEMEN - SMKS ISLAM BUSTANUL ULUM',
-    alamat: 'Jl. Pendidikan No. 45, Kecamatan Bojong',
-    npsn: '12345678',
-    kepala_sekolah: 'Drs. H. Ahmad Sudrajat, M.Pd',
-    tahun_pelajaran: '2024/2025',
-    semester: 'Ganjil',
-    logo: ''
-  });
+  const { schoolIdentity } = useSchoolIdentity();
 
   const [currentUser, setCurrentUser] = useState<Pengguna | null>(() => {
     // Aliran Data: Membaca status login pengguna dari penyimpanan lokal atau sesi untuk standardisasi simibu_user
@@ -96,18 +97,6 @@ export default function App() {
   const [selectedStudentNis, setSelectedStudentNis] = useState<string | null>(null);
   const [isStudentModalOpen, setIsStudentModalOpen] = useState<boolean>(false);
   const [isChangelogOpen, setIsChangelogOpen] = useState<boolean>(false);
-
-  const fetchSchoolIdentity = async () => {
-    try {
-      const res = await fetch('/api/school-identity');
-      if (res.ok) {
-        const data = await res.json();
-        setSchoolIdentity(data);
-      }
-    } catch (err) {
-      console.error('Error fetching global school identity:', err);
-    }
-  };
 
   const fetchClasses = async () => {
     setLoadingClasses(true);
@@ -145,7 +134,6 @@ export default function App() {
     };
     fetchConfig();
     fetchClasses();
-    fetchSchoolIdentity();
 
     // Daftarkan fungsi pemanggil profil siswa secara global agar dapat diakses oleh komponen anak manapun
     (window as any).showStudentProfile = (nis: string) => {
@@ -377,7 +365,7 @@ export default function App() {
           )}
 
           {currentTab === 'bk' && (
-            <BkView currentUser={currentUser} />
+            <BkView currentUser={currentUser} schoolIdentity={schoolIdentity} />
           )}
 
           {currentTab === 'kajur' && (

@@ -1,7 +1,7 @@
 import React from 'react';
 import { BarChart3 } from 'lucide-react';
 import { Kelas, Pengguna } from '../../../types';
-import ProfilView from '../ProfilView';
+import ProfilView from '../../profile/ProfilView';
 
 // ============================================================================
 // KOMPONEN: HomeStatistikTab

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { School, Layers, Upload, Download, Users, Trash2, ArrowRight, CheckCircle2, UserPlus, Info, Calendar, UserX, UserCheck, BarChart3 } from 'lucide-react';
 import { Kelas, Pengguna } from '../../../types';
 import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar, Line } from 'recharts';
-import ProfilView from '../ProfilView';
+import ProfilView from '../../profile/ProfilView';
 import WaliKelasView from '../../wali-kelas/WaliKelasView';
 
 export default function HomeSekolahTab(props: any) {

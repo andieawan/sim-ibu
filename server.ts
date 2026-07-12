@@ -1,9 +1,18 @@
+// ============================================================================
+// Nama File : server.ts
+// Lokasi    : /server.ts
+// Peran     : Entry point utama server full-stack Express untuk aplikasi SIMIBU.
+//             Mengatur routing API, middleware, kompresi, penyajian berkas statis, 
+//             dan pengintegrasian Vite Dev Server / produksi.
+// Dependency: dotenv, express, compression, vite, dotenv-safe
+// ============================================================================
+
 import dotenv from 'dotenv';
 dotenv.config();
 
 import express from 'express';
 import path from 'path';
-import compression from 'compression'; // For Performance scaling
+import compression from 'compression'; // Middleware untuk kompresi payload agar performa transmisi data meningkat
 import { createServer as createViteServer } from 'vite';
 import { db } from './server/db';
 import apiRouter from './server/routes';
@@ -12,10 +21,10 @@ import { startBackupScheduler } from './server/scheduler';
 const app = express();
 const PORT = 3000;
 
-// Improve API Server Performance & Load Times
+// Meningkatkan kinerja API server & mempercepat waktu loading menggunakan kompresi GZIP
 app.use(compression());
 
-// Custom whitelisted CORS middleware
+// Penanganan kebijakan CORS (Cross-Origin Resource Sharing) kustom untuk origin yang diizinkan
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5173',
@@ -47,13 +56,14 @@ app.use((req, res, next) => {
   next();
 });
 
-// Enable JSON parser, urlencoded, and plain text parsers
+// Middleware untuk melakukan parsing JSON, URL-encoded form data, dan plain text dengan limit kapasitas besar (50MB)
+// Kapasitas besar diperlukan untuk impor spreadsheet massal dan unggah basis data cadangan.
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(express.text({ type: 'text/plain', limit: '50mb' }));
 
-// Serve static assets from the public folder directly (both dev & prod)
-// This guarantees that sw.js, manifest.json, and icon files are served with the correct headers without redirects.
+// Menyajikan berkas statis dari direktori 'public' (berlaku di mode pengembangan & produksi)
+// Hal ini menjamin Service Worker (sw.js), manifest.json, dan ikon-ikon disajikan dengan header HTTP yang tepat tanpa redirect.
 app.use(express.static(path.join(process.cwd(), 'public'), {
   maxAge: '0',
   setHeaders: (res, filepath) => {
@@ -67,16 +77,21 @@ app.use(express.static(path.join(process.cwd(), 'public'), {
   }
 }));
 
-// Register Modular API router
+// Mendaftarkan router modular untuk seluruh endpoint API SIMIBU (/api/*)
 app.use('/api', apiRouter);
 
-// Database logging indicator
+// Indikator konsol bahwa instansi database telah terhubung ke runtime server utama
 console.log('Database instance mapped to central server runtime.');
 
-// --- INTEGRATING VITE DEV SERVER / PRODUCTION STATIC FILES ---
+// ============================================================================
+// FUNGSI UTAMA: startServer()
+// Deskripsi : Memulai siklus hidup aplikasi. Menentukan apakah server berjalan 
+//             di mode pengembangan (Vite dev server) atau mode produksi (Express statis).
+// Efek       : Menjalankan pendengaran port HTTP & penjadwal pencadangan otomatis.
+// ============================================================================
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
-    // In development mode, load Vite as middleware
+    // Mode Pengembangan: Muat Vite sebagai middleware Express
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
@@ -84,23 +99,25 @@ async function startServer() {
     app.use(vite.middlewares);
     console.log('Vite middleware mounted for development.');
   } else {
-    // In production mode, serve compiled static assets with Cache-Control for performance
+    // Mode Produksi: Sajikan aset statis yang sudah dikompilasi oleh Vite
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath, {
-      maxAge: '1y', // Cache static assets for 1 year (Vite hashes filenames)
-      immutable: true, // Files never change
-      index: false // Let the catch-all handle index.html to prevent caching HTML
+      maxAge: '1y', // Cache aset statis selama 1 tahun karena Vite menghasilkan hash nama file yang unik
+      immutable: true, // Berkas statis tidak akan berubah namanya
+      index: false // Biarkan penanganan catch-all di bawah menangani berkas index.html untuk mencegah caching HTML yang lama
     }));
     app.get('*', (req, res) => {
-      // Do not cache index.html
+      // Pastikan index.html tidak dicache agar klien selalu menerima pembaruan aplikasi terbaru
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
       res.sendFile(path.join(distPath, 'index.html'));
     });
     console.log('Serving production build from:', distPath);
   }
 
+  // Menjalankan aplikasi pada host 0.0.0.0 agar dapat diakses dari luar kontainer Cloud Run
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Sim-ibu Full-Stack application is active on http://localhost:${PORT}`);
+    // Jalankan scheduler pencadangan otomatis (Google Drive / Lokal)
     startBackupScheduler();
   });
 }

@@ -1,3 +1,12 @@
+// ============================================================================
+// Nama File : AdminView.tsx
+// Lokasi    : /src/views/admin/AdminView.tsx
+// Peran     : Halaman dashboard khusus Administrator untuk mengelola seluruh aspek
+//             administratif sekolah: Manajemen Akun Pengguna, Jadwal Pelajaran,
+//             Katalog Kelas & Siswa, Unggah Spreadsheet Massal, dan Diagnostik Sistem.
+// Dependency: react, jszip, xlsx, lucide-react, useSpreadsheetImport
+// ============================================================================
+
 import React, { useState, useEffect } from 'react';
 import JSZip from 'jszip';
 import { 
