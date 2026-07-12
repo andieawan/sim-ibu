@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CatatanWaliKelas, Pengguna, Siswa } from '../../types';
 import { Save, Plus, AlertTriangle, BookOpen, Trash } from 'lucide-react';
+import { useDialog } from '../../components/DialogProvider';
 
 // ============================================================================
 // KOMPONEN: WaliKelasCatatan
@@ -17,6 +18,7 @@ interface WaliKelasCatatanProps {
 }
 
 export default function WaliKelasCatatan({ currentUser, kelasId }: WaliKelasCatatanProps) {
+  const { showAlert, showConfirm } = useDialog();
   const [catatanList, setCatatanList] = useState<CatatanWaliKelas[]>([]);
   const [siswaList, setSiswaList] = useState<Siswa[]>([]);
   const [loading, setLoading] = useState(false);
@@ -84,7 +86,14 @@ export default function WaliKelasCatatan({ currentUser, kelasId }: WaliKelasCata
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Hapus catatan ini?')) return;
+    const confirmed = await showConfirm(
+      'Apakah Anda yakin ingin menghapus catatan bimbingan ini?',
+      'Hapus Catatan',
+      'danger',
+      'Ya, Hapus',
+      'Batal'
+    );
+    if (!confirmed) return;
     try {
       const res = await fetch(`/api/catatan_walikelas/${id}`, {
         method: 'DELETE'

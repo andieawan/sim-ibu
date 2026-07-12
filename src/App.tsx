@@ -62,7 +62,8 @@ export default function App() {
     npsn: '12345678',
     kepala_sekolah: 'Drs. H. Ahmad Sudrajat, M.Pd',
     tahun_pelajaran: '2024/2025',
-    semester: 'Ganjil'
+    semester: 'Ganjil',
+    logo: ''
   });
 
   const [currentUser, setCurrentUser] = useState<Pengguna | null>(() => {
@@ -271,9 +272,18 @@ export default function App() {
       {/* Top Header Card */}
       <header className="bg-[#0f1219] border-b border-slate-800 sticky top-0 z-40 px-5 py-4 shadow-lg flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-xl flex items-center justify-center font-bold shadow-md">
-            <GraduationCap className="w-5.5 h-5.5" />
-          </div>
+          {schoolIdentity.logo ? (
+            <img 
+              src={schoolIdentity.logo} 
+              alt="Logo Sekolah" 
+              className="w-10 h-10 object-contain rounded-xl bg-slate-900 border border-slate-800 p-1 shadow-md"
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <div className="w-10 h-10 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-xl flex items-center justify-center font-bold shadow-md">
+              <GraduationCap className="w-5.5 h-5.5" />
+            </div>
+          )}
           <div>
             <div className="flex items-center gap-1.5 flex-wrap">
               <h1 className="text-base font-extrabold text-slate-100 leading-none uppercase tracking-tight">{getHeaderTitle()}</h1>

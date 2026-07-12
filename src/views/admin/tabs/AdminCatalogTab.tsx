@@ -6,8 +6,10 @@ import {
   Activity, Cpu, Wrench
 } from 'lucide-react';
 import { AdminTabProps } from '../types';
+import { useDialog } from '../../../components/DialogProvider';
 
 export default function AdminCatalogTab(props: AdminTabProps) {
+  const { showAlert } = useDialog();
   const {
     classes, onRefreshClasses, onRefreshUsers, currentUser,
     users, loadingUsers, userSuccessMsg, userErrorMsg, editingUserId,
@@ -190,10 +192,10 @@ export default function AdminCatalogTab(props: AdminTabProps) {
                                       await onRefreshClasses();
                                       if (onRefreshUsers) onRefreshUsers();
                                     } else {
-                                      alert('Gagal mengupdate Wali Kelas');
+                                      showAlert('Gagal mengupdate Wali Kelas', 'Kesalahan', 'danger');
                                     }
                                   } catch (err: any) {
-                                    alert('Error: ' + err.message);
+                                    showAlert('Error: ' + err.message, 'Kesalahan', 'danger');
                                   }
                                 }}
                                 className={`bg-[#161b22] border px-1.5 py-0.5 rounded text-[10px] focus:outline-none focus:border-blue-500 font-semibold cursor-pointer max-w-[140px] truncate ${

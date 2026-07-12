@@ -16,6 +16,7 @@ import AdminSystemTab from './tabs/AdminSystemTab';
 import * as XLSX from 'xlsx';
 import { Kelas, Siswa, Pengguna, Jadwal } from '../../types';
 import { useSpreadsheetImport } from './hooks/useSpreadsheetImport';
+import { useDialog } from '../../components/DialogProvider';
 
 interface AdminViewProps {
   classes: Kelas[];
@@ -39,6 +40,7 @@ interface AdminUser {
 }
 
 export default function AdminView({ classes, onRefreshClasses, currentUser, onNavigateToTab }: AdminViewProps) {
+  const { showAlert, showConfirm, showPrompt } = useDialog();
   const [adminTab, setAdminTab] = useState<'users' | 'catalog' | 'upload' | 'jadwal' | 'system'>('users');
   const [schedViewMode, setSchedViewMode] = useState<'grid' | 'flat'>('grid');
   const [schedSearchQuery, setSchedSearchQuery] = useState('');
@@ -54,7 +56,7 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
   const exportStudentsToExcel = () => {
     try {
       if (filteredSiswa.length === 0) {
-        alert('Tidak ada data siswa untuk diekspor.');
+        showAlert('Tidak ada data siswa untuk diekspor.', 'Ekspor Gagal', 'warning');
         return;
       }
       
@@ -103,7 +105,7 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } catch (err: any) {
-      alert(`Gagal mengekspor data: ${err.message}`);
+      showAlert(`Gagal mengekspor data: ${err.message}`, 'Kesalahan Ekspor', 'danger');
     }
   };
 
@@ -930,7 +932,14 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
   };
 
   const handleDeleteUser = async (id: number) => {
-    if (!window.confirm('Apakah Anda yakin ingin menghapus akun pengguna ini?')) return;
+    const confirmed = await showConfirm(
+      'Apakah Anda yakin ingin menghapus akun pengguna ini?',
+      'Hapus Pengguna',
+      'danger',
+      'Ya, Hapus',
+      'Batal'
+    );
+    if (!confirmed) return;
     setUserErrorMsg('');
     setUserSuccessMsg('');
 
@@ -958,7 +967,14 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
 
   // Delete student directly
   const handleDeleteStudent = async (nis: string) => {
-    if (!window.confirm(`Hapus siswa dengan NIS ${nis}? Seluruh data absensi dan nilai siswa ini juga akan terhapus secara permanen.`)) return;
+    const confirmed = await showConfirm(
+      `Apakah Anda yakin ingin menghapus siswa dengan NIS ${nis}? Seluruh data absensi dan nilai siswa ini juga akan terhapus secara permanen.`,
+      'Hapus Siswa',
+      'danger',
+      'Ya, Hapus',
+      'Batal'
+    );
+    if (!confirmed) return;
     try {
       const res = await fetch(`/api/siswa/${nis}`, { method: 'DELETE' });
       if (res.ok) {
@@ -972,7 +988,14 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
 
   // Delete class directly
   const handleDeleteClass = async (id: number, nama: string) => {
-    if (!window.confirm(`PERINGATAN: Menghapus kelas "${nama}" akan melenyapkan SELURUH data siswa, absensi, dan nilai di kelas tersebut. Lanjutkan?`)) return;
+    const confirmed = await showConfirm(
+      `PERINGATAN BERDAYA TINGGI!\n\nMenghapus kelas "${nama}" akan melenyapkan SELURUH data siswa, absensi, dan nilai di kelas tersebut secara permanen. Lanjutkan?`,
+      'Hapus Kelas & Seluruh Data',
+      'danger',
+      'Ya, Hapus Semua',
+      'Batal'
+    );
+    if (!confirmed) return;
     try {
       const res = await fetch(`/api/kelas/${id}`, { method: 'DELETE' });
       if (res.ok) {
@@ -986,12 +1009,14 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
 
   // Database Wipe Utility
   const handleResetDatabase = async () => {
-    const confirmation = window.prompt(
-      'PERINGATAN BERDAYA TINGGI!\n\nSeluruh konfigurasi Kategori Kelas, Siswa, Presensi Siswa, dan Histori Penilaian akan DIHAPUS & RE-SEEDING ULANG dari basis data awal.\n\nKetik kata kunci "RESTART" untuk menyetujui reset:'
+    const confirmation = await showPrompt(
+      'PERINGATAN BERDAYA TINGGI!\n\nSeluruh konfigurasi Kategori Kelas, Siswa, Presensi Siswa, dan Histori Penilaian akan DIHAPUS & RE-SEEDING ULANG dari basis data awal.\n\nKetik kata kunci "RESTART" untuk menyetujui reset:',
+      'Wipe & Reset Database',
+      'RESTART'
     );
     
     if (confirmation !== 'RESTART') {
-      alert('Reset dibatalkan. Kata kunci tidak cocok.');
+      showAlert('Reset dibatalkan. Kata kunci tidak cocok.', 'Batal Reset', 'info');
       return;
     }
 
@@ -1035,11 +1060,11 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
 
   const handleBulkAction = async () => {
     if (promotionMode === 'promote' && !promotionTargetClass) {
-      alert('Pilih kelas target promosi terlebih dahulu.');
+      showAlert('Pilih kelas target promosi terlebih dahulu.', 'Pilih Kelas', 'warning');
       return;
     }
     if (!promotionSourceClass) {
-      alert('Pilih kelas asal terlebih dahulu.');
+      showAlert('Pilih kelas asal terlebih dahulu.', 'Pilih Kelas', 'warning');
       return;
     }
 
@@ -1047,7 +1072,14 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
       ? 'Apakah Anda yakin ingin MENAIKKAN SELURUH siswa di kelas ini ke kelas target?' 
       : 'Apakah Anda yakin ingin MELULUSKAN SELURUH siswa di kelas terpilih (Status Alumni/Nonaktif)?';
 
-    if (!window.confirm(confirmMsg)) return;
+    const confirmed = await showConfirm(
+      confirmMsg,
+      promotionMode === 'promote' ? 'Kenaikan Kelas Massal' : 'Kelulusan Massal',
+      'warning',
+      'Ya, Lanjutkan',
+      'Batal'
+    );
+    if (!confirmed) return;
 
     setPromoting(true);
     setSystemAlert(null);
@@ -1059,7 +1091,7 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
       const targetSiswa = allStudents.filter(s => String(s.kelas_id) === String(promotionSourceClass));
       
       if (targetSiswa.length === 0) {
-        alert('Tidak ada siswa di kelas terpilih.');
+        showAlert('Tidak ada siswa di kelas terpilih.', 'Siswa Kosong', 'warning');
         setPromoting(false);
         return;
       }

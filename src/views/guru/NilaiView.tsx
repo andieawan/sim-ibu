@@ -3,6 +3,7 @@ import { Award, CheckCircle2, ShieldAlert, History, ArrowLeft, Loader2, Save, Sp
 import { Kelas, Siswa } from '../../types';
 import NilaiHistoryModal from './NilaiHistoryModal';
 import { formatIndoDate } from '../../utils';
+import { useDialog } from '../../components/DialogProvider';
 
 interface NilaiViewProps {
   classes: Kelas[];
@@ -36,6 +37,7 @@ export default function NilaiView({
   selectedClassId,
   onClassChange,
 }: NilaiViewProps) {
+  const { showAlert } = useDialog();
   const isLight = typeof document !== 'undefined' && document.documentElement.classList.contains('theme-light');
   const getAuthHeader = () => {
     try {
@@ -273,7 +275,7 @@ export default function NilaiView({
   const handleUpdateGrades = async () => {
     if (!selectedHistorySession) return;
     if (!editActivityName.trim()) {
-      alert("Nama aktivitas wajib diisi!");
+      showAlert("Nama aktivitas wajib diisi!", "Validasi Form", "warning");
       return;
     }
 
@@ -319,10 +321,10 @@ export default function NilaiView({
         }
       } else {
         const errData = await response.json();
-        alert(errData.error || "Gagal memperbarui nilai.");
+        showAlert(errData.error || "Gagal memperbarui nilai.", "Kesalahan Simpan", "danger");
       }
     } catch (err: any) {
-      alert(`Terjadi kesalahan: ${err.message}`);
+      showAlert(`Terjadi kesalahan: ${err.message}`, "Kesalahan Sistem", "danger");
     } finally {
       setUpdating(false);
     }

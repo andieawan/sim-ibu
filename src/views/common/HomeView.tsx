@@ -10,6 +10,7 @@ import HomeWaliKelasTab from './tabs/HomeWaliKelasTab';
 import HomeKelasTab from './tabs/HomeKelasTab';
 import HomeStatistikTab from './tabs/HomeStatistikTab';
 import * as XLSX from 'xlsx';
+import { useDialog } from '../../components/DialogProvider';
 
 interface HomeViewProps {
   currentUser: Pengguna;
@@ -42,6 +43,7 @@ export default function HomeView({
   schoolIdentity,
   theme = 'dark'
 }: HomeViewProps) {
+  const { showAlert, showConfirm } = useDialog();
   const isWaliKelas = classes.some(c => c.walikelas_id === currentUser.id);
   const [activeSubTab, setActiveSubTab] = useState<'sekolah' | 'kelas' | 'walikelas' | 'statistik'>(
     isWaliKelas ? 'walikelas' : 'sekolah'
@@ -288,7 +290,14 @@ export default function HomeView({
   };
 
   const handleDeactivateSiswa = async (nis: string) => {
-    if (!confirm('Apakah Anda yakin ingin menonaktifkan siswa ini? (Siswa Berhenti / Pindah)')) return;
+    const confirmed = await showConfirm(
+      'Apakah Anda yakin ingin menonaktifkan siswa ini? (Siswa Berhenti / Pindah)',
+      'Nonaktifkan Siswa',
+      'warning',
+      'Ya, Nonaktifkan',
+      'Batal'
+    );
+    if (!confirmed) return;
     try {
       const res = await fetch(`/api/siswa/${nis}`, { method: 'DELETE' });
       if (res.ok) {
@@ -313,7 +322,14 @@ export default function HomeView({
   };
 
   const handleReactivateSiswa = async (nis: string) => {
-    if (!confirm('Apakah Anda yakin ingin mengaktifkan kembali siswa ini?')) return;
+    const confirmed = await showConfirm(
+      'Apakah Anda yakin ingin mengaktifkan kembali siswa ini?',
+      'Aktifkan Siswa',
+      'info',
+      'Ya, Aktifkan',
+      'Batal'
+    );
+    if (!confirmed) return;
     try {
       const res = await fetch(`/api/siswa/${nis}/status`, {
         method: 'PUT',
@@ -344,7 +360,14 @@ export default function HomeView({
   };
 
   const handleDeleteKelas = async (id: number) => {
-    if (!confirm('Menghapus kelas akan menghapus semua siswa dan riwayat di dalamnya. Anda yakin?')) return;
+    const confirmed = await showConfirm(
+      'Menghapus kelas akan menghapus semua siswa dan riwayat di dalamnya. Apakah Anda benar-benar yakin?',
+      'Hapus Kelas',
+      'danger',
+      'Ya, Hapus Semua',
+      'Batal'
+    );
+    if (!confirmed) return;
     try {
       const res = await fetch(`/api/kelas/${id}`, { method: 'DELETE' });
       if (res.ok) {

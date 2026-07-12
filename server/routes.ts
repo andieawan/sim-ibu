@@ -3,6 +3,7 @@ import { db, dbRun, dbAll, dbGet, initializeDatabase } from './db';
 import bcrypt from 'bcryptjs';
 import { getIronSession } from 'iron-session';
 import JSZip from 'jszip';
+import { executeBackupToGoogle } from './scheduler';
 
 // Define session data type
 export interface MySessionData {
@@ -76,7 +77,8 @@ router.get('/school-identity', (req, res) => {
       npsn: "12345678",
       kepala_sekolah: "Drs. H. Ahmad Sudrajat, M.Pd",
       tahun_pelajaran: "2024/2025",
-      semester: "Ganjil"
+      semester: "Ganjil",
+      logo: ""
     };
 
     if (fs.existsSync(schoolIdentityPath)) {
@@ -97,7 +99,7 @@ router.get('/school-identity', (req, res) => {
 // Update school identity
 router.post('/school-identity', requireAdmin, async (req, res) => {
   try {
-    const { nama_sekolah, motto, alamat, npsn, kepala_sekolah, tahun_pelajaran, semester } = req.body;
+    const { nama_sekolah, motto, alamat, npsn, kepala_sekolah, tahun_pelajaran, semester, logo } = req.body;
     if (!nama_sekolah) {
       return res.status(400).json({ error: 'Nama sekolah wajib diisi' });
     }
@@ -108,7 +110,8 @@ router.post('/school-identity', requireAdmin, async (req, res) => {
       npsn: (npsn || '').trim(),
       kepala_sekolah: (kepala_sekolah || '').trim(),
       tahun_pelajaran: (tahun_pelajaran || '2024/2025').trim(),
-      semester: (semester || 'Ganjil').trim()
+      semester: (semester || 'Ganjil').trim(),
+      logo: (logo || '').trim()
     };
     fs.writeFileSync(schoolIdentityPath, JSON.stringify(updatedData, null, 2), 'utf8');
     
@@ -1551,8 +1554,8 @@ router.post('/auth/login', loginRateLimiter, async (req, res) => {
     if (!username || !password) {
       return res.status(400).json({ error: 'Username dan password wajib diisi' });
     }
-    const user = await dbGet<{ id: number; username: string; nama: string; role: string; password: string; nip: string; jabatan: string; siswa_nis?: string | null; kelas_id?: number | null }>(
-      'SELECT id, username, nama, role, password, nip, jabatan, siswa_nis, kelas_id FROM pengguna WHERE LOWER(username) = ?',
+    const user = await dbGet<{ id: number; username: string; nama: string; role: string; password: string; nip: string; jabatan: string; jurusan?: string; siswa_nis?: string | null; kelas_id?: number | null }>(
+      'SELECT id, username, nama, role, password, nip, jabatan, jurusan, siswa_nis, kelas_id FROM pengguna WHERE LOWER(username) = ?',
       [username.trim().toLowerCase()]
     );
 
@@ -1613,6 +1616,7 @@ router.post('/auth/login', loginRateLimiter, async (req, res) => {
       role: user.role,
       nip: user.nip || '',
       jabatan: user.jabatan || '',
+      jurusan: user.jurusan || '',
       siswa_nis: user.siswa_nis || null,
       kelas_id: user.kelas_id || null,
       message: 'Login berhasil'
@@ -1655,7 +1659,7 @@ router.put('/auth/profile', authenticateSession, async (req: any, res) => {
     }
 
     const updatedUser = await dbGet(
-      'SELECT id, username, nama, role, nip, jabatan FROM pengguna WHERE id = ?',
+      'SELECT id, username, nama, role, nip, jabatan, jurusan, kelas_id, siswa_nis FROM pengguna WHERE id = ?',
       [userId]
     );
 
@@ -2272,6 +2276,327 @@ router.get('/system/backup', async (req, res) => {
   }
 });
 
+// GET /api/system/backup/google/config - Get Google backup settings
+router.get('/system/backup/google/config', requireAdmin, (req, res) => {
+  try {
+    const data = fs.existsSync(schoolIdentityPath) ? JSON.parse(fs.readFileSync(schoolIdentityPath, 'utf-8')) : {};
+    res.json({
+      google_backup_user: data.google_backup_user || null,
+      google_backup_spreadsheet_id: data.google_backup_spreadsheet_id || null,
+      google_backup_spreadsheet_url: data.google_backup_spreadsheet_id 
+        ? `https://docs.google.com/spreadsheets/d/${data.google_backup_spreadsheet_id}/edit` 
+        : null,
+      last_backup_time: data.last_backup_time || null,
+      last_backup_status: data.last_backup_status || 'Belum Terjadwal',
+      backup_schedule_enabled: data.backup_schedule_enabled || false
+    });
+  } catch (err: any) {
+    console.error('Error getting Google backup config:', err);
+    res.status(500).json({ error: 'Gagal memuat pengaturan Google backup: ' + err.message });
+  }
+});
+
+// POST /api/system/backup/google/config - Save or update Google backup token/schedule settings
+router.post('/system/backup/google/config', requireAdmin, (req, res) => {
+  try {
+    const { accessToken, email, enabled } = req.body;
+    
+    const data = fs.existsSync(schoolIdentityPath) ? JSON.parse(fs.readFileSync(schoolIdentityPath, 'utf-8')) : {};
+    
+    if (accessToken) data.google_backup_token = accessToken;
+    if (email) data.google_backup_user = email;
+    if (enabled !== undefined) data.backup_schedule_enabled = !!enabled;
+    
+    fs.writeFileSync(schoolIdentityPath, JSON.stringify(data, null, 2), 'utf-8');
+    
+    res.json({ 
+      success: true, 
+      message: 'Pengaturan Google backup berhasil disimpan.',
+      config: {
+        google_backup_user: data.google_backup_user,
+        backup_schedule_enabled: data.backup_schedule_enabled,
+        last_backup_status: data.last_backup_status || 'Belum Terjadwal'
+      }
+    });
+  } catch (err: any) {
+    console.error('Error saving Google backup config:', err);
+    res.status(500).json({ error: 'Gagal menyimpan pengaturan Google backup: ' + err.message });
+  }
+});
+
+// POST /api/system/backup/google/run - Execute Google Sheets backup immediately
+router.post('/system/backup/google/run', requireAdmin, async (req, res) => {
+  try {
+    const { accessToken } = req.body;
+    
+    const data = fs.existsSync(schoolIdentityPath) ? JSON.parse(fs.readFileSync(schoolIdentityPath, 'utf-8')) : {};
+    const token = accessToken || data.google_backup_token;
+    
+    if (!token) {
+      return res.status(401).json({ error: 'Sesi Google belum terhubung. Silakan hubungkan akun Google Anda terlebih dahulu.' });
+    }
+    
+    const result = await executeBackupToGoogle(token);
+    res.json({
+      success: true,
+      message: 'Backup data ke Google Sheets berhasil diselesaikan!',
+      spreadsheetId: result.spreadsheetId,
+      spreadsheetUrl: result.spreadsheetUrl
+    });
+  } catch (err: any) {
+    console.error('Error executing manual backup to Google Sheets:', err);
+    res.status(500).json({ error: 'Gagal mencadangkan data ke Google Sheets: ' + err.message });
+  }
+});
+
+// POST /api/system/backup/google/disconnect - Disconnect Google account and stop scheduled backups
+router.post('/system/backup/google/disconnect', requireAdmin, (req, res) => {
+  try {
+    const data = fs.existsSync(schoolIdentityPath) ? JSON.parse(fs.readFileSync(schoolIdentityPath, 'utf-8')) : {};
+    
+    data.google_backup_token = null;
+    data.google_backup_user = null;
+    data.google_backup_spreadsheet_id = null;
+    data.backup_schedule_enabled = false;
+    data.last_backup_status = 'Terputus';
+    
+    fs.writeFileSync(schoolIdentityPath, JSON.stringify(data, null, 2), 'utf-8');
+    
+    res.json({ success: true, message: 'Koneksi akun Google berhasil diputuskan.' });
+  } catch (err: any) {
+    console.error('Error disconnecting Google backup:', err);
+    res.status(500).json({ error: 'Gagal memutuskan akun Google: ' + err.message });
+  }
+});
+
+// ============================================================================
+// SYSTEM GURU PINTAR (SiGup) - SECURE EXTERNAL API ENGINE
+// Maksud Bisnis: Membuka endpoint API yang terlindungi API Key (Token) agar data
+// siswa bisa dikonsumsi atau diintegrasikan secara aman dengan aplikasi luar.
+// ============================================================================
+
+function getExternalApiConfig() {
+  const data = fs.existsSync(schoolIdentityPath) ? JSON.parse(fs.readFileSync(schoolIdentityPath, 'utf-8')) : {};
+  let changed = false;
+  
+  if (data.external_api_enabled === undefined) {
+    data.external_api_enabled = true;
+    changed = true;
+  }
+  
+  if (!data.external_api_token) {
+    const randomHex = crypto.randomBytes(16).toString('hex');
+    data.external_api_token = `sigup_sec_${randomHex}`;
+    changed = true;
+  }
+  
+  if (changed) {
+    fs.writeFileSync(schoolIdentityPath, JSON.stringify(data, null, 2), 'utf-8');
+  }
+  
+  return {
+    enabled: !!data.external_api_enabled,
+    token: data.external_api_token
+  };
+}
+
+function requireExternalApiKey(req: any, res: any, next: any) {
+  const config = getExternalApiConfig();
+  
+  if (!config.enabled) {
+    return res.status(403).json({ 
+      success: false, 
+      error: 'Akses API ditolak: Layanan API Eksternal dinonaktifkan oleh administrator.' 
+    });
+  }
+  
+  let providedToken = '';
+  
+  const authHeader = req.headers['authorization'];
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    providedToken = authHeader.substring(7).trim();
+  } else if (req.headers['x-api-key']) {
+    providedToken = String(req.headers['x-api-key']).trim();
+  } else if (req.query.api_key) {
+    providedToken = String(req.query.api_key).trim();
+  }
+  
+  if (!providedToken || providedToken !== config.token) {
+    return res.status(401).json({ 
+      success: false, 
+      error: 'Akses API ditolak: API Key/Token tidak valid atau tidak disertakan di Header/Query.' 
+    });
+  }
+  
+  next();
+}
+
+// Admin: Get External API Config
+router.get('/system/external-api/config', requireAdmin, (req, res) => {
+  try {
+    const config = getExternalApiConfig();
+    res.json({
+      success: true,
+      config
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: Update External API Config (Enable/Disable or Regenerate)
+router.post('/system/external-api/config', requireAdmin, (req, res) => {
+  try {
+    const { enabled, regenerate } = req.body;
+    const data = fs.existsSync(schoolIdentityPath) ? JSON.parse(fs.readFileSync(schoolIdentityPath, 'utf-8')) : {};
+    
+    if (enabled !== undefined) {
+      data.external_api_enabled = !!enabled;
+    }
+    
+    if (regenerate) {
+      const randomHex = crypto.randomBytes(16).toString('hex');
+      data.external_api_token = `sigup_sec_${randomHex}`;
+    }
+    
+    fs.writeFileSync(schoolIdentityPath, JSON.stringify(data, null, 2), 'utf-8');
+    
+    res.json({
+      success: true,
+      message: 'Konfigurasi Secure API berhasil diperbarui.',
+      config: {
+        enabled: !!data.external_api_enabled,
+        token: data.external_api_token
+      }
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- SECURE API FOR EXTERNAL INTEGRATIONS ---
+
+// 1. GET ALL STUDENTS (Secure)
+router.get('/external/v1/siswa', requireExternalApiKey, async (req, res) => {
+  try {
+    const siswa = await dbAll(`
+      SELECT s.nis, s.nama, s.jenis_kelamin, s.kelas_id, k.nama_kelas, s.status_aktif
+      FROM siswa s
+      LEFT JOIN kelas k ON s.kelas_id = k.id
+      ORDER BY s.nama ASC
+    `);
+    res.json({
+      success: true,
+      count: siswa.length,
+      data: siswa
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 2. GET SINGLE STUDENT PROFILE (Secure)
+router.get('/external/v1/siswa/:nis', requireExternalApiKey, async (req, res) => {
+  try {
+    const { nis } = req.params;
+    const siswa = await dbGet(`
+      SELECT s.nis, s.nama, s.jenis_kelamin, s.kelas_id, k.nama_kelas, s.status_aktif
+      FROM siswa s
+      LEFT JOIN kelas k ON s.kelas_id = k.id
+      WHERE s.nis = ?
+    `, [nis]);
+    
+    if (!siswa) {
+      return res.status(404).json({ success: false, error: 'Siswa tidak ditemukan.' });
+    }
+    
+    res.json({
+      success: true,
+      data: siswa
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 3. CREATE NEW STUDENT (Secure)
+router.post('/external/v1/siswa', requireExternalApiKey, async (req, res) => {
+  try {
+    const { nis, nama, jenis_kelamin, kelas_id, status_aktif } = req.body;
+    if (!nis || !nama) {
+      return res.status(400).json({ success: false, error: 'NIS dan Nama siswa wajib diisi.' });
+    }
+    
+    const existing = await dbGet('SELECT nis FROM siswa WHERE nis = ?', [nis]);
+    if (existing) {
+      return res.status(400).json({ success: false, error: `Siswa dengan NIS ${nis} sudah terdaftar.` });
+    }
+    
+    await dbRun(
+      `INSERT INTO siswa (nis, nama, jenis_kelamin, kelas_id, status_aktif)
+       VALUES (?, ?, ?, ?, ?)`,
+      [nis, nama, jenis_kelamin || 'L', kelas_id || null, status_aktif !== undefined ? status_aktif : 1]
+    );
+    
+    res.status(201).json({
+      success: true,
+      message: 'Data siswa berhasil disimpan via Secure API.',
+      data: { nis, nama, jenis_kelamin, kelas_id, status_aktif }
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 4. UPDATE STUDENT (Secure)
+router.put('/external/v1/siswa/:nis', requireExternalApiKey, async (req, res) => {
+  try {
+    const { nis } = req.params;
+    const { nama, jenis_kelamin, kelas_id, status_aktif } = req.body;
+    
+    const existing = await dbGet('SELECT nis FROM siswa WHERE nis = ?', [nis]);
+    if (!existing) {
+      return res.status(404).json({ success: false, error: 'Siswa tidak ditemukan.' });
+    }
+    
+    await dbRun(
+      `UPDATE siswa 
+       SET nama = COALESCE(?, nama), 
+           jenis_kelamin = COALESCE(?, jenis_kelamin), 
+           kelas_id = COALESCE(?, kelas_id), 
+           status_aktif = COALESCE(?, status_aktif)
+       WHERE nis = ?`,
+      [nama || null, jenis_kelamin || null, kelas_id || null, status_aktif !== undefined ? status_aktif : null, nis]
+    );
+    
+    res.json({
+      success: true,
+      message: 'Data siswa berhasil diperbarui via Secure API.'
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 5. DELETE STUDENT (Secure)
+router.delete('/external/v1/siswa/:nis', requireExternalApiKey, async (req, res) => {
+  try {
+    const { nis } = req.params;
+    const existing = await dbGet('SELECT nis FROM siswa WHERE nis = ?', [nis]);
+    if (!existing) {
+      return res.status(404).json({ success: false, error: 'Siswa tidak ditemukan.' });
+    }
+    
+    await dbRun('DELETE FROM siswa WHERE nis = ?', [nis]);
+    res.json({
+      success: true,
+      message: 'Data siswa berhasil dihapus via Secure API.'
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // ============================================================================
 // ENDPOINT: POST /api/codebase/check
 // Maksud Bisnis: Menerima unggahan file ZIP berisi seluruh codebase kode sumber proyek,
@@ -2519,9 +2844,11 @@ router.delete('/catatan_walikelas/:id', async (req, res) => {
 router.get('/surat_bk', async (req, res) => {
   try {
     const query = `
-      SELECT sb.*, s.nama as nama_siswa, p.nama as nama_guru 
+      SELECT sb.*, s.nama as nama_siswa, p.nama as nama_guru, k.nama_kelas as nama_kelas, wk.nama as nama_walikelas
       FROM surat_bk sb
       JOIN siswa s ON sb.siswa_nis = s.nis
+      LEFT JOIN kelas k ON s.kelas_id = k.id
+      LEFT JOIN pengguna wk ON k.walikelas_id = wk.id
       JOIN pengguna p ON sb.guru_id = p.id
       ORDER BY sb.id DESC
     `;

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Kelas, Pengguna } from '../../types';
 import { BarChart3, Users, Briefcase } from 'lucide-react';
+import { useDialog } from '../../components/DialogProvider';
 
 interface KajurViewProps {
   currentUser: Pengguna;
@@ -8,20 +9,58 @@ interface KajurViewProps {
 }
 
 export default function KajurView({ currentUser, classes }: KajurViewProps) {
+  const { showAlert } = useDialog();
   const [jurusanClasses, setJurusanClasses] = useState<Kelas[]>([]);
 
+  // Determine active jurusan, with fallbacks for cached user sessions
+  let activeJurusan = currentUser.jurusan;
+  if (!activeJurusan && currentUser.username) {
+    const usernameLower = currentUser.username.toLowerCase();
+    if (usernameLower === 'kajur') activeJurusan = 'Desain Komunikasi Visual';
+    else if (usernameLower === 'kajur_bd') activeJurusan = 'Bisnis Digital';
+    else if (usernameLower === 'kajur_ak') activeJurusan = 'Akuntansi';
+    else if (usernameLower === 'kajur_rpl') activeJurusan = 'Rekayasa Perangkat Lunak';
+  }
+
   useEffect(() => {
-    // Filter classes by this Kajur's jurusan
-    if (currentUser.jurusan) {
-      setJurusanClasses(classes.filter(c => c.jurusan === currentUser.jurusan));
+    if (activeJurusan) {
+      const cleanKajur = activeJurusan.trim().toLowerCase();
+      
+      const abbreviations: Record<string, string[]> = {
+        'desain komunikasi visual': ['dkv', 'desain komunikasi visual'],
+        'bisnis digital': ['bd', 'bisnis digital'],
+        'akuntansi': ['ak', 'akuntansi'],
+        'rekayasa perangkat lunak': ['rpl', 'rekayasa perangkat lunak']
+      };
+      
+      const allowedKeys = abbreviations[cleanKajur] || [cleanKajur];
+
+      const filtered = classes.filter(c => {
+        const cleanClassJur = (c.jurusan || '').trim().toLowerCase();
+        const cleanClassName = (c.nama_kelas || '').trim().toLowerCase();
+
+        // 1. Direct match on class jurusan
+        if (cleanClassJur === cleanKajur) return true;
+
+        // 2. Matching abbreviation keys
+        if (allowedKeys.includes(cleanClassJur)) return true;
+
+        // 3. Class name containing key (e.g. "X DKV 1" containing "dkv")
+        if (allowedKeys.some(key => cleanClassName.includes(key))) return true;
+
+        return false;
+      });
+      setJurusanClasses(filtered);
+    } else {
+      setJurusanClasses([]);
     }
-  }, [classes, currentUser]);
+  }, [classes, activeJurusan]);
 
   return (
     <div className="space-y-6">
       <div className="bg-[#161b22] border border-slate-800 rounded-3xl p-6 shadow-xl text-center md:text-left flex flex-col md:flex-row items-center justify-between gap-6">
         <div>
-          <h2 className="text-xl font-black text-slate-100">Kepala Jurusan {currentUser.jurusan || '???'}</h2>
+          <h2 className="text-xl font-black text-slate-100">Kepala Jurusan {activeJurusan || '???'}</h2>
           <p className="text-sm text-slate-400 mt-1">Monitoring dan Evaluasi Kompetensi Keahlian</p>
         </div>
         <div className="flex gap-4">
@@ -55,7 +94,7 @@ export default function KajurView({ currentUser, classes }: KajurViewProps) {
                 <button 
                   onClick={() => {
                     // Navigate to class detail or show PKL readiness
-                    alert('Fitur rekomendasi PKL akan segera hadir.');
+                    showAlert('Fitur rekomendasi PKL akan segera hadir.', 'Informasi', 'info');
                   }}
                   className="w-full py-2 bg-blue-600/10 hover:bg-blue-600 text-blue-400 hover:text-white rounded-xl text-xs font-bold transition-colors"
                 >

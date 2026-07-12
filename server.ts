@@ -7,6 +7,7 @@ import compression from 'compression'; // For Performance scaling
 import { createServer as createViteServer } from 'vite';
 import { db } from './server/db';
 import apiRouter from './server/routes';
+import { startBackupScheduler } from './server/scheduler';
 
 const app = express();
 const PORT = 3000;
@@ -100,6 +101,7 @@ async function startServer() {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Sim-ibu Full-Stack application is active on http://localhost:${PORT}`);
+    startBackupScheduler();
   });
 }
 

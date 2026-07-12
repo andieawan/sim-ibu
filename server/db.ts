@@ -33,24 +33,48 @@ class BetterSQLiteDatabaseProvider implements DatabaseProvider {
   name = 'sqlite';
 
   async connect(): Promise<void> {
-    try {
+    const tryConnect = () => {
       db = new Database(dbPath, { verbose: console.log });
       db.pragma('foreign_keys = ON');
       db.pragma('journal_mode = WAL');
       db.pragma('synchronous = NORMAL');
       db.pragma('cache_size = -64000');
-      console.log('Connected to better-sqlite3 database at:', dbPath);
       
-      // Check integrity
       const row = db.prepare('PRAGMA integrity_check;').get() as any;
       if (row && row.integrity_check !== 'ok') {
-          console.warn('SQLite integrity check failed', row);
+        throw new Error(`SQLite integrity check failed: ${row.integrity_check}`);
       }
-      
+    };
+
+    try {
+      tryConnect();
+      console.log('Connected to better-sqlite3 database at:', dbPath);
       await initializeDatabase();
     } catch (err: any) {
       console.error('Error connecting to better-sqlite3 database:', err);
-      // For now, re-throw or handle as critical
+      
+      const errMsg = err.message || '';
+      if (errMsg.includes('malformed') || errMsg.includes('corrupt') || errMsg.includes('integrity check failed')) {
+        console.warn('Database is corrupted. Attempting self-healing by deleting and recreating database...');
+        try {
+          if (db) {
+            try { db.close(); } catch (e) {}
+          }
+          // Delete corrupted database files
+          if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
+          if (fs.existsSync(`${dbPath}-wal`)) fs.unlinkSync(`${dbPath}-wal`);
+          if (fs.existsSync(`${dbPath}-shm`)) fs.unlinkSync(`${dbPath}-shm`);
+          
+          console.log('Corrupted database files deleted. Reconnecting...');
+          tryConnect();
+          console.log('Connected to fresh better-sqlite3 database at:', dbPath);
+          await initializeDatabase();
+          return;
+        } catch (repairErr: any) {
+          console.error('Failed to repair/recreate corrupted database:', repairErr);
+          throw repairErr;
+        }
+      }
       throw err;
     }
   }

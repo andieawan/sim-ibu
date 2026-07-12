@@ -3,11 +3,13 @@ import {
   Users, Key, Plus, Trash2, Shield, Settings, Database, 
   RotateCcw, CheckCircle2, ShieldAlert, Edit, Save, X, 
   GraduationCap, Layers, Search, UserCheck, Upload, Download, Info, Calendar,
-  Activity, Cpu, Wrench
+  Activity, Cpu, Wrench, FileSpreadsheet, Link2, Link2Off, Check
 } from 'lucide-react';
 import { AdminTabProps } from '../types';
+import { useDialog } from '../../../components/DialogProvider';
 
 export default function AdminSystemTab(props: AdminTabProps) {
+  const { showAlert, showConfirm } = useDialog();
   const {
     classes, onRefreshClasses, currentUser,
     users, loadingUsers, userSuccessMsg, userErrorMsg, editingUserId,
@@ -21,6 +23,212 @@ export default function AdminSystemTab(props: AdminTabProps) {
     setSchoolIdentity, handleSaveSchoolIdentity, runSystemDiagnostics, handleApplyAllPatches, handleDragOver, handleDragLeave, handleDrop, handlePatchUpload, handleResetDatabase,
     downloadSampleCSV, exportStudentsToExcel, filteredSiswa, setScheduleAlert, setPatchAlert
   } = props;
+
+  const [backupConfig, setBackupConfig] = React.useState<any>(null);
+  const [loadingConfig, setLoadingConfig] = React.useState(true);
+  const [runningBackup, setRunningBackup] = React.useState(false);
+  const [backupAlert, setBackupAlert] = React.useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const fetchBackupConfig = async () => {
+    try {
+      setLoadingConfig(true);
+      const res = await fetch('/api/system/backup/google/config');
+      if (res.ok) {
+        const data = await res.json();
+        setBackupConfig(data);
+      }
+    } catch (err) {
+      console.error('Error fetching backup config:', err);
+    } finally {
+      setLoadingConfig(false);
+    }
+  };
+
+  const [apiConfig, setApiConfig] = React.useState<{ enabled: boolean; token: string } | null>(null);
+  const [loadingApiConfig, setLoadingApiConfig] = React.useState(true);
+  const [apiAlert, setApiAlert] = React.useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [copied, setCopied] = React.useState(false);
+  const [regenerating, setRegenerating] = React.useState(false);
+
+  const fetchApiConfig = async () => {
+    try {
+      setLoadingApiConfig(true);
+      const res = await fetch('/api/system/external-api/config');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setApiConfig(data.config);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching API config:', err);
+    } finally {
+      setLoadingApiConfig(false);
+    }
+  };
+
+  const handleToggleApi = async (enabled: boolean) => {
+    try {
+      setApiAlert(null);
+      const res = await fetch('/api/system/external-api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setApiConfig(data.config);
+          setApiAlert({ message: enabled ? 'Layanan Secure API eksternal telah diaktifkan.' : 'Layanan Secure API eksternal telah dinonaktifkan.', type: 'success' });
+        }
+      }
+    } catch (err: any) {
+      setApiAlert({ message: err.message || 'Gagal mengubah status Secure API.', type: 'error' });
+    }
+  };
+
+  const handleRegenerateToken = async () => {
+    const confirmed = await showConfirm(
+      'Apakah Anda yakin ingin membuat ulang API Key baru? Integrasi di aplikasi luar Anda akan terputus sampai Anda memperbarui token di aplikasi tersebut.',
+      'Buat Ulang API Key',
+      'warning',
+      'Ya, Buat Ulang',
+      'Batal'
+    );
+    if (!confirmed) {
+      return;
+    }
+    try {
+      setRegenerating(true);
+      setApiAlert(null);
+      const res = await fetch('/api/system/external-api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ regenerate: true })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setApiConfig(data.config);
+          setApiAlert({ message: 'API Key baru berhasil dibuat. Harap segera perbarui kunci di aplikasi eksternal Anda.', type: 'success' });
+        }
+      }
+    } catch (err: any) {
+      setApiAlert({ message: err.message || 'Gagal meregenerasi API Key.', type: 'error' });
+    } finally {
+      setRegenerating(false);
+    }
+  };
+
+  const handleCopyToken = () => {
+    if (!apiConfig?.token) return;
+    navigator.clipboard.writeText(apiConfig.token);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  React.useEffect(() => {
+    fetchBackupConfig();
+    fetchApiConfig();
+  }, []);
+
+  const handleConnectGoogle = async () => {
+    try {
+      setBackupAlert(null);
+      const { googleSignIn } = await import('../../../lib/workspaceAuth');
+      const authResult = await googleSignIn();
+      if (!authResult) return;
+
+      const res = await fetch('/api/system/backup/google/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accessToken: authResult.accessToken,
+          email: authResult.user.email,
+          enabled: true
+        })
+      });
+
+      if (res.ok) {
+        setBackupAlert({ message: 'Akun Google berhasil terhubung dan Auto-Backup mingguan diaktifkan!', type: 'success' });
+        fetchBackupConfig();
+      } else {
+        const err = await res.json();
+        setBackupAlert({ message: err.error || 'Gagal menyimpan konfigurasi backup.', type: 'error' });
+      }
+    } catch (err: any) {
+      console.error('Connection error:', err);
+      setBackupAlert({ message: err.message || 'Gagal menghubungkan akun Google.', type: 'error' });
+    }
+  };
+
+  const handleToggleSchedule = async (enabled: boolean) => {
+    try {
+      setBackupAlert(null);
+      const res = await fetch('/api/system/backup/google/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled })
+      });
+
+      if (res.ok) {
+        setBackupAlert({ message: enabled ? 'Auto-Backup mingguan diaktifkan.' : 'Auto-Backup mingguan dinonaktifkan.', type: 'success' });
+        fetchBackupConfig();
+      }
+    } catch (err) {
+      console.error('Error toggling schedule:', err);
+    }
+  };
+
+  const handleRunBackup = async () => {
+    try {
+      setRunningBackup(true);
+      setBackupAlert(null);
+
+      const { getAccessToken } = await import('../../../lib/workspaceAuth');
+      const token = await getAccessToken();
+
+      const res = await fetch('/api/system/backup/google/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accessToken: token || undefined })
+      });
+
+      const result = await res.json();
+      if (res.ok && result.success) {
+        setBackupAlert({ message: 'Backup data ke Google Sheets berhasil diselesaikan!', type: 'success' });
+        fetchBackupConfig();
+      } else {
+        setBackupAlert({ message: result.error || 'Gagal menjalankan backup. Silakan coba hubungkan ulang akun Google Anda.', type: 'error' });
+      }
+    } catch (err: any) {
+      console.error('Backup run error:', err);
+      setBackupAlert({ message: err.message || 'Gagal menjalankan backup.', type: 'error' });
+    } finally {
+      setRunningBackup(false);
+    }
+  };
+
+  const handleDisconnectGoogle = async () => {
+    const confirmed = await showConfirm(
+      'Apakah Anda yakin ingin memutuskan akun Google dan menonaktifkan jadwal auto-backup?',
+      'Putuskan Akun Google',
+      'warning',
+      'Ya, Putuskan',
+      'Batal'
+    );
+    if (!confirmed) return;
+    try {
+      setBackupAlert(null);
+      const res = await fetch('/api/system/backup/google/disconnect', { method: 'POST' });
+      if (res.ok) {
+        setBackupAlert({ message: 'Koneksi akun Google berhasil diputuskan.', type: 'success' });
+        fetchBackupConfig();
+      }
+    } catch (err) {
+      console.error('Error disconnecting:', err);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -218,6 +426,61 @@ export default function AdminSystemTab(props: AdminTabProps) {
             </div>
 
             <form onSubmit={handleSaveSchoolIdentity} className="space-y-4 max-w-3xl">
+              {/* Logo Upload Section */}
+              <div className="bg-[#0f1219] p-4 rounded-2xl border border-slate-800 flex flex-col sm:flex-row items-center gap-4">
+                <div className="w-20 h-20 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
+                  {schoolIdentity.logo ? (
+                    <img 
+                      src={schoolIdentity.logo} 
+                      alt="Logo Sekolah" 
+                      className="w-full h-full object-contain p-1"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <GraduationCap className="w-10 h-10 text-slate-700" />
+                  )}
+                </div>
+                <div className="space-y-1 text-center sm:text-left flex-1">
+                  <label className="text-3xs font-extrabold text-slate-500 tracking-wider block font-mono uppercase font-sans">LOGO SEKOLAH / INSTANSI</label>
+                  <p className="text-3xs text-slate-500 mb-2">Unggah berkas gambar (PNG, JPG, maks. 1MB). Logo akan ditampilkan di header atas aplikasi.</p>
+                  <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
+                    <label className="px-3 py-1.5 bg-blue-600/10 hover:bg-blue-600 text-blue-400 hover:text-white rounded-xl text-3xs font-bold border border-blue-500/20 cursor-pointer transition active:scale-95 flex items-center">
+                      <span>Pilih Gambar</span>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            if (file.size > 1 * 1024 * 1024) {
+                              showAlert("Ukuran gambar melebihi batas 1MB.", "Batas Ukuran Logo", "danger");
+                              return;
+                            }
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                              if (event.target?.result) {
+                                setSchoolIdentity({ ...schoolIdentity, logo: event.target.result as string });
+                              }
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+                    {schoolIdentity.logo && (
+                      <button
+                        type="button"
+                        onClick={() => setSchoolIdentity({ ...schoolIdentity, logo: '' })}
+                        className="px-3 py-1.5 bg-rose-600/10 hover:bg-rose-600 text-rose-400 hover:text-white rounded-xl text-3xs font-bold border border-rose-500/20 cursor-pointer transition active:scale-95"
+                      >
+                        Hapus Logo
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-3xs font-extrabold text-slate-500 tracking-wider block font-mono uppercase">NAMA SEKOLAH / INSTANSI</label>
@@ -323,6 +586,367 @@ export default function AdminSystemTab(props: AdminTabProps) {
                 <span>{loadingIdentity ? 'Menyimpan...' : 'Simpan Identitas Sekolah'}</span>
               </button>
             </form>
+          </div>
+
+          {/* Google Sheets Backup & Sync Card */}
+          <div className="bg-[#161b22] border border-slate-850 p-6 rounded-3xl space-y-5 shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4">
+              <FileSpreadsheet className="w-16 h-16 text-emerald-500/5 pointer-events-none" />
+            </div>
+
+            <div className="space-y-1">
+              <h5 className="font-extrabold text-emerald-400 text-base flex items-center gap-1.5 uppercase font-mono tracking-wide">
+                <FileSpreadsheet className="w-5 h-5" />
+                Google Sheets Auto-Backup &amp; Sync
+              </h5>
+              <p className="text-xs text-slate-400 font-medium">
+                Cadangkan data instansi secara berkala ke Google Sheets. Seluruh data guru, siswa, kelas, presensi, dan nilai akan disinkronisasikan secara terpadu.
+              </p>
+            </div>
+
+            {loadingConfig ? (
+              <div className="py-6 flex items-center gap-2 justify-center text-xs text-slate-550 font-mono">
+                <RotateCcw className="w-4 h-4 animate-spin text-emerald-500" />
+                <span>Memuat konfigurasi pencadangan...</span>
+              </div>
+            ) : (
+              <div className="space-y-5">
+                {/* Connection Status Panel */}
+                <div className="p-4 bg-slate-900/50 border border-slate-850 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2.5 rounded-xl border ${
+                      backupConfig?.google_backup_user 
+                        ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-400' 
+                        : 'bg-slate-800/40 border-slate-700/50 text-slate-500'
+                    }`}>
+                      {backupConfig?.google_backup_user ? (
+                        <Link2 className="w-5 h-5 animate-pulse" />
+                      ) : (
+                        <Link2Off className="w-5 h-5" />
+                      )}
+                    </div>
+                    <div>
+                      <span className="text-3xs font-extrabold uppercase text-slate-500 tracking-wider font-mono block">Status Integrasi</span>
+                      <strong className={`text-xs ${backupConfig?.google_backup_user ? 'text-slate-100' : 'text-slate-450'}`}>
+                        {backupConfig?.google_backup_user 
+                          ? `Terhubung dengan ${backupConfig.google_backup_user}` 
+                          : 'Belum Terhubung dengan Google'}
+                      </strong>
+                    </div>
+                  </div>
+
+                  {!backupConfig?.google_backup_user ? (
+                    <button
+                      onClick={handleConnectGoogle}
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-md hover:scale-[1.01] active:scale-95 transition cursor-pointer"
+                    >
+                      <Link2 className="w-4 h-4" />
+                      <span>Hubungkan Akun Google &amp; Aktifkan</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleDisconnectGoogle}
+                      className="px-4 py-2 border border-rose-500/30 hover:border-rose-500 hover:bg-rose-500/5 text-rose-400 font-bold rounded-xl text-xs flex items-center gap-2 transition cursor-pointer"
+                    >
+                      <Link2Off className="w-4 h-4" />
+                      <span>Putuskan Akun Google</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Configuration Options (Visible when Connected) */}
+                {backupConfig?.google_backup_user && (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {/* Schedule Option */}
+                    <div className="p-4 bg-slate-900/30 border border-slate-850 rounded-2xl flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        id="autoBackupCheckbox"
+                        checked={backupConfig?.backup_schedule_enabled}
+                        onChange={(e) => handleToggleSchedule(e.target.checked)}
+                        className="w-4 h-4 mt-0.5 accent-emerald-500 text-emerald-600 rounded bg-[#0f1219] border-slate-800"
+                      />
+                      <label htmlFor="autoBackupCheckbox" className="select-none cursor-pointer space-y-0.5">
+                        <span className="text-xs font-bold text-slate-200 block">Jadwalkan Auto-Backup Mingguan</span>
+                        <span className="text-3xs text-slate-450 font-medium block">
+                          Mengatur sinkronisasi otomatis seluruh database ke Google Sheets setiap hari <strong>Sabtu pukul 23:55 WIB</strong>.
+                        </span>
+                      </label>
+                    </div>
+
+                    {/* Metadata and Quick Actions */}
+                    <div className="p-4 bg-slate-900/30 border border-slate-850 rounded-2xl space-y-3">
+                      <div className="flex items-center justify-between text-3xs font-mono">
+                        <span className="text-slate-500 uppercase font-bold">KONDISI AUTO-BACKUP</span>
+                        <span className={`px-2 py-0.5 rounded-full font-extrabold uppercase ${
+                          backupConfig?.backup_schedule_enabled
+                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/10'
+                            : 'bg-slate-800/60 text-slate-500 border border-slate-750'
+                        }`}>
+                          {backupConfig?.backup_schedule_enabled ? 'AKTIF' : 'NONAKTIF'}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-[11px]">
+                        <div className="space-y-0.5">
+                          <span className="text-3xs text-slate-500 font-mono block">SINKRONISASI TERAKHIR</span>
+                          <span className="text-slate-300 font-bold">
+                            {backupConfig?.last_backup_time 
+                              ? new Date(backupConfig.last_backup_time).toLocaleString('id-ID') 
+                              : '-'}
+                          </span>
+                        </div>
+                        <div className="space-y-0.5">
+                          <span className="text-3xs text-slate-500 font-mono block">STATUS TERAKHIR</span>
+                          <span className={`font-extrabold uppercase ${
+                            backupConfig?.last_backup_status === 'Sukses' 
+                              ? 'text-emerald-400' 
+                              : backupConfig?.last_backup_status?.startsWith('Gagal')
+                                ? 'text-rose-400'
+                                : 'text-slate-450'
+                          }`}>
+                            {backupConfig?.last_backup_status || 'Belum Terjadwal'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {backupConfig?.google_backup_spreadsheet_url && (
+                        <div className="pt-2 border-t border-slate-850/80 flex items-center justify-between">
+                          <span className="text-3xs text-slate-500 font-mono">EXCEL/SPREADSHEET BACKUP:</span>
+                          <a
+                            href={backupConfig.google_backup_spreadsheet_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-emerald-400 hover:text-emerald-350 font-bold flex items-center gap-1 hover:underline transition-all"
+                          >
+                            <FileSpreadsheet className="w-3.5 h-3.5" />
+                            <span>Buka Spreadsheet</span>
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Manual Execution Actions */}
+                {backupConfig?.google_backup_user && (
+                  <div className="pt-2 border-t border-slate-850/50 flex gap-2">
+                    <button
+                      onClick={handleRunBackup}
+                      disabled={runningBackup}
+                      className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-2xl text-xs flex items-center gap-1.5 shadow-md hover:scale-[1.01] active:scale-95 transition disabled:opacity-60 cursor-pointer"
+                    >
+                      <RotateCcw className={`w-4 h-4 ${runningBackup ? 'animate-spin' : ''}`} />
+                      <span>{runningBackup ? 'Memproses Sync...' : 'Backup Sekarang ke Google Sheets'}</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {backupAlert && (
+              <div className={`p-4 rounded-2xl text-xs flex gap-2.5 border ${
+                backupAlert.type === 'success' 
+                  ? 'bg-emerald-950/35 border-emerald-500/20 text-emerald-400' 
+                  : 'bg-rose-950/35 border-rose-500/20 text-[#ff5555]'
+              }`}>
+                {backupAlert.type === 'success' ? (
+                  <Check className="w-4.5 h-4.5 text-emerald-500 shrink-0" />
+                ) : (
+                  <ShieldAlert className="w-4.5 h-4.5 text-rose-500 shrink-0" />
+                )}
+                <span>{backupAlert.message}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Secure External REST API Section */}
+          <div className="bg-[#161b22] border border-slate-850 p-6 rounded-3xl space-y-5 shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4">
+              <Key className="w-16 h-16 text-blue-500/5 pointer-events-none" />
+            </div>
+
+            <div className="space-y-1">
+              <h5 className="font-extrabold text-blue-400 text-base flex items-center gap-1.5 uppercase font-mono tracking-wide">
+                <Shield className="w-5 h-5 text-blue-500" />
+                Integrasi REST API Eksternal &amp; Pengamanan Aplikasi
+              </h5>
+              <p className="text-xs text-slate-400 font-medium">
+                Aktifkan dan kelola API Key terenkripsi agar sistem luar (aplikasi seluler, website alumni, atau sistem dapodik eksternal) dapat membaca dan menulis data siswa secara aman.
+              </p>
+            </div>
+
+            {loadingApiConfig ? (
+              <div className="py-6 flex items-center gap-2 justify-center text-xs text-slate-550 font-mono">
+                <RotateCcw className="w-4 h-4 animate-spin text-blue-500" />
+                <span>Memuat konfigurasi Secure API...</span>
+              </div>
+            ) : (
+              <div className="space-y-5">
+                {/* API Status and Credentials Panel */}
+                <div className="p-4 bg-slate-900/50 border border-slate-850 rounded-2xl flex flex-col gap-4">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2.5 rounded-xl border ${
+                        apiConfig?.enabled 
+                          ? 'bg-blue-500/10 border-blue-500/25 text-blue-400' 
+                          : 'bg-slate-800/40 border-slate-700/50 text-slate-500'
+                      }`}>
+                        <Shield className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <span className="text-3xs font-extrabold uppercase text-slate-500 tracking-wider font-mono block">Status Layanan API</span>
+                        <strong className={`text-xs ${apiConfig?.enabled ? 'text-emerald-400' : 'text-rose-450'}`}>
+                          {apiConfig?.enabled ? 'AKTIF (Siap Menerima Koneksi Luar)' : 'NON-AKTIF (Seluruh Akses Luar Ditutup)'}
+                        </strong>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => handleToggleApi(!apiConfig?.enabled)}
+                      className={`px-4 py-2 font-bold rounded-xl text-xs flex items-center gap-2 transition cursor-pointer shadow-md active:scale-95 ${
+                        apiConfig?.enabled
+                          ? 'bg-rose-900/20 text-rose-400 border border-rose-800/40 hover:bg-rose-900/40'
+                          : 'bg-blue-600 hover:bg-blue-500 text-white'
+                      }`}
+                    >
+                      {apiConfig?.enabled ? 'Nonaktifkan REST API' : 'Aktifkan REST API'}
+                    </button>
+                  </div>
+
+                  {apiConfig?.enabled && (
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-3xs font-extrabold text-slate-500 tracking-wider block font-mono uppercase mb-1">SECURE API KEY / BEARER TOKEN</label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            readOnly
+                            value={apiConfig?.token || ''}
+                            className="w-full px-4 py-2.5 bg-[#0f1219] border border-slate-800 rounded-2xl text-blue-400 font-mono text-xs focus:outline-none tracking-wider font-semibold"
+                          />
+                          <button
+                            onClick={handleCopyToken}
+                            className="px-4 py-2.5 bg-[#161b22] border border-slate-800 hover:bg-slate-800 text-slate-200 hover:text-white font-bold rounded-2xl text-xs transition active:scale-95 shrink-0"
+                          >
+                            {copied ? 'Tersalin!' : 'Salin Token'}
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-slate-500 mt-1 leading-normal">
+                          Gunakan token di atas dalam format header HTTP: <code className="text-blue-400 font-mono">Authorization: Bearer [TOKEN]</code> atau header kustom <code className="text-blue-400 font-mono">x-api-key: [TOKEN]</code>.
+                        </p>
+                      </div>
+
+                      <div className="pt-2">
+                        <button
+                          onClick={handleRegenerateToken}
+                          disabled={regenerating}
+                          className="px-4 py-2 text-rose-400 hover:text-rose-350 bg-rose-500/5 hover:bg-rose-500/10 border border-rose-500/10 font-bold rounded-xl text-xs flex items-center gap-1.5 transition active:scale-95 disabled:opacity-55 shrink-0"
+                        >
+                          <RotateCcw className={`w-3.5 h-3.5 ${regenerating ? 'animate-spin' : ''}`} />
+                          <span>Regenerasi API Key Baru</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* API Endpoint Documentation & Live Samples */}
+                {apiConfig?.enabled && (
+                  <div className="p-5 bg-slate-900/30 border border-slate-850 rounded-2xl space-y-4">
+                    <h6 className="text-xs font-bold text-slate-200 flex items-center gap-2">
+                      <Info className="w-4 h-4 text-blue-400" />
+                      Panduan Teknis Integrasi &amp; Endpoint REST API
+                    </h6>
+
+                    <div className="space-y-3">
+                      {/* Endpoints Table */}
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse text-3xs font-mono">
+                          <thead>
+                            <tr className="border-b border-slate-800 text-slate-500">
+                              <th className="pb-2 font-extrabold">METODE</th>
+                              <th className="pb-2 font-extrabold">ENDPOINT PATH</th>
+                              <th className="pb-2 font-extrabold">FUNGSI &amp; AKSES DATA</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/40 text-slate-300">
+                            <tr>
+                              <td className="py-2.5 font-bold text-emerald-400">GET</td>
+                              <td className="py-2.5 font-semibold text-slate-100">/api/external/v1/siswa</td>
+                              <td className="py-2.5 text-slate-400">Mengambil daftar seluruh siswa aktif beserta info kelas</td>
+                            </tr>
+                            <tr>
+                              <td className="py-2.5 font-bold text-emerald-400">GET</td>
+                              <td className="py-2.5 font-semibold text-slate-100">/api/external/v1/siswa/:nis</td>
+                              <td className="py-2.5 text-slate-400">Mengambil biodata lengkap siswa spesifik berdasarkan NIS</td>
+                            </tr>
+                            <tr>
+                              <td className="py-2.5 font-bold text-blue-400">POST</td>
+                              <td className="py-2.5 font-semibold text-slate-100">/api/external/v1/siswa</td>
+                              <td className="py-2.5 text-slate-400">Menyimpan siswa baru dari sistem lain (JSON Payload)</td>
+                            </tr>
+                            <tr>
+                              <td className="py-2.5 font-bold text-amber-400">PUT</td>
+                              <td className="py-2.5 font-semibold text-slate-100">/api/external/v1/siswa/:nis</td>
+                              <td className="py-2.5 text-slate-400">Memperbarui informasi biodata siswa terdaftar</td>
+                            </tr>
+                            <tr>
+                              <td className="py-2.5 font-bold text-rose-400">DELETE</td>
+                              <td className="py-2.5 font-semibold text-slate-100">/api/external/v1/siswa/:nis</td>
+                              <td className="py-2.5 text-slate-400">Menghapus data siswa dari database sekolah</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Code Examples */}
+                      <div className="space-y-2 pt-2 border-t border-slate-800/40">
+                        <span className="text-3xs font-extrabold text-slate-500 tracking-wider font-mono block">CONTOH AKSES (CURL &amp; JAVASCRIPT FETCH)</span>
+                        
+                        <div className="bg-[#0f1219] p-3 rounded-xl border border-slate-850 text-[10px] font-mono text-slate-300 overflow-x-auto space-y-2">
+                          <div>
+                            <span className="text-slate-550 block select-none">// 1. Menggunakan cURL (Command Line)</span>
+                            <code className="text-blue-300 select-all block">
+                              {`curl -X GET "${window.location.origin}/api/external/v1/siswa" \\\n  -H "Authorization: Bearer ${apiConfig?.token || 'TOKEN'}"`}
+                            </code>
+                          </div>
+                          <div className="pt-2 border-t border-slate-850/50">
+                            <span className="text-slate-550 block select-none">// 2. Menggunakan JavaScript Fetch</span>
+                            <pre className="text-emerald-300 select-all overflow-x-auto leading-normal">
+{`fetch("${window.location.origin}/api/external/v1/siswa", {
+  method: "GET",
+  headers: {
+    "Authorization": "Bearer ${apiConfig?.token || 'YOUR_TOKEN'}",
+    "Content-Type": "application/json"
+  }
+})
+.then(res => res.json())
+.then(data => console.log(data));`}
+                            </pre>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {apiAlert && (
+              <div className={`p-4 rounded-2xl text-xs flex gap-2.5 border ${
+                apiAlert.type === 'success' 
+                  ? 'bg-emerald-950/35 border-emerald-500/20 text-emerald-400' 
+                  : 'bg-rose-950/35 border-rose-500/20 text-[#ff5555]'
+              }`}>
+                {apiAlert.type === 'success' ? (
+                  <Check className="w-4.5 h-4.5 text-emerald-500 shrink-0" />
+                ) : (
+                  <ShieldAlert className="w-4.5 h-4.5 text-rose-500 shrink-0" />
+                )}
+                <span>{apiAlert.message}</span>
+              </div>
+            )}
           </div>
 
           {/* Wipe data / System Alert Box */}
