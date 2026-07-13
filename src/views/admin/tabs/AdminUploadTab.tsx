@@ -909,10 +909,10 @@ export default function AdminUploadTab(props: AdminTabProps) {
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                {/* === UPDATE VERSI SISTEM KE v2.2.0 === */}
+                {/* === UPDATE VERSI SISTEM KE v2.3.0 === */}
                 {/* Maksud Bisnis: Menunjukkan status build server terakhir yang tervalidasi dan siap patch. */}
                 <span className="px-3 py-1 bg-[#0f1219] border border-slate-800 rounded-full text-3xs font-bold text-blue-400 font-mono">
-                  v2.2.0-STABLE
+                  v2.3.0-STABLE
                 </span>
                 {systemPatches.filter(p => p.status === 'pending').length > 0 && (
                   <button

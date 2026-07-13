@@ -1,7 +1,7 @@
 {
-  "name": "react-example",
+  "name": "sim-ibu",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
@@ -26,6 +26,7 @@
     "jszip": "^3.10.1",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
+    "mysql2": "^3.22.6",
     "pg": "^8.22.0",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",

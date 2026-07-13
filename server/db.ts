@@ -127,17 +127,33 @@ class PostgreSQLDatabaseProvider implements DatabaseProvider {
   async connect(): Promise<void> {
     console.log('Connecting to PostgreSQL database using host:', process.env.DB_HOST || 'localhost');
     try {
-      // Dynamic import to prevent crash on startup if peer-dependencies are not installed!
       const pg = await import('pg' as any);
-      this.pool = new pg.Pool({
-        host: process.env.DB_HOST || 'localhost',
-        port: parseInt(process.env.DB_PORT || '5432'),
-        user: process.env.DB_USER || 'postgres',
-        password: process.env.DB_PASSWORD || 'postgres',
-        database: process.env.DB_NAME || 'sigup_db',
-        ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
-      });
-      console.log('Successfully connected to Postgres Pool [Lazy loaded pg].');
+      
+      let retries = 5;
+      while (retries > 0) {
+        try {
+          this.pool = new pg.Pool({
+            host: process.env.DB_HOST || 'localhost',
+            port: parseInt(process.env.DB_PORT || '5432'),
+            user: process.env.DB_USER || 'postgres',
+            password: process.env.DB_PASSWORD || 'postgres',
+            database: process.env.DB_NAME || 'sigup_db',
+            ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
+          });
+          
+          // Test query
+          await this.pool.query('SELECT 1');
+          console.log('Successfully connected to Postgres Pool [Lazy loaded pg].');
+          return;
+        } catch (connErr: any) {
+          retries--;
+          console.warn(`PostgreSQL connection attempt failed: ${connErr.message}. Retries remaining: ${retries}`);
+          if (retries === 0) {
+            throw connErr;
+          }
+          await new Promise((res) => setTimeout(res, 3000));
+        }
+      }
     } catch (err: any) {
       console.error('Error connecting to PostgreSQL database:', err.message);
       console.warn('Fallback: Creating mock/local simulator client to avoid crash on start.');
@@ -202,6 +218,7 @@ class PostgreSQLDatabaseProvider implements DatabaseProvider {
     pgSql = pgSql.replace(/INTEGER PRIMARY KEY AUTOINCREMENT/gi, 'SERIAL PRIMARY KEY');
     
     // 2. Ubah fungsi datetime SQLite menjadi CURRENT_TIMESTAMP standar PostgreSQL
+    pgSql = pgSql.replace(/datetime\('now'\)/gi, "CURRENT_TIMESTAMP");
     pgSql = pgSql.replace(/datetime\('now'/gi, "CURRENT_TIMESTAMP");
     
     // 3. Ubah perintah INSERT OR REPLACE khas SQLite pada detail_nilai menjadi ON CONFLICT DO UPDATE PostgreSQL
@@ -212,10 +229,34 @@ class PostgreSQLDatabaseProvider implements DatabaseProvider {
       );
     }
     
-    // 4. Ubah sisa perintah INSERT OR REPLACE menjadi INSERT INTO biasa
+    // 4. Ubah perintah INSERT OR REPLACE pada detail_absensi
+    if (/INSERT OR REPLACE INTO detail_absensi/i.test(pgSql)) {
+      pgSql = pgSql.replace(
+        /INSERT OR REPLACE INTO detail_absensi \(([^)]+)\) VALUES \(([^)]+)\)/i,
+        (_, cols, vals) => `INSERT INTO detail_absensi (${cols}) VALUES (${vals}) ON CONFLICT(absensi_id, siswa_nis) DO UPDATE SET status = EXCLUDED.status, updated_at = EXCLUDED.updated_at`
+      );
+    }
+
+    // 5. Ubah perintah INSERT OR REPLACE pada siswa
+    if (/INSERT OR REPLACE INTO siswa/i.test(pgSql)) {
+      pgSql = pgSql.replace(
+        /INSERT OR REPLACE INTO siswa \(([^)]+)\) VALUES \(([^)]+)\)/i,
+        (_, cols, vals) => `INSERT INTO siswa (${cols}) VALUES (${vals}) ON CONFLICT(nis) DO UPDATE SET nama = EXCLUDED.nama, jenis_kelamin = EXCLUDED.jenis_kelamin, kelas_id = EXCLUDED.kelas_id`
+      );
+    }
+
+    // 6. Ubah perintah INSERT OR REPLACE pada patches
+    if (/INSERT OR REPLACE INTO patches/i.test(pgSql)) {
+      pgSql = pgSql.replace(
+        /INSERT OR REPLACE INTO patches \(([^)]+)\) VALUES \(([^)]+)\)/i,
+        (_, cols, vals) => `INSERT INTO patches (${cols}) VALUES (${vals}) ON CONFLICT(id) DO UPDATE SET nama_patch = EXCLUDED.nama_patch, deskripsi = EXCLUDED.deskripsi, kategori = EXCLUDED.kategori, status = EXCLUDED.status, applied_at = EXCLUDED.applied_at, sql_statements = EXCLUDED.sql_statements`
+      );
+    }
+
+    // 7. Ubah sisa perintah INSERT OR REPLACE menjadi INSERT INTO biasa
     pgSql = pgSql.replace(/INSERT OR REPLACE INTO/gi, 'INSERT INTO');
 
-    // 5. Otomatis menambahkan klausa 'RETURNING id' untuk semua perintah INSERT di PostgreSQL,
+    // 8. Otomatis menambahkan klausa 'RETURNING id' untuk semua perintah INSERT di PostgreSQL,
     // kecuali untuk tabel 'siswa' dan 'patches' yang tidak menggunakan kolom kunci otomatis 'id'.
     // Hal ini sangat penting agar pgRun dapat mengembalikan ID baris baru yang berhasil dimasukkan.
     if (/INSERT INTO/i.test(pgSql) && !/RETURNING/i.test(pgSql)) {
@@ -239,14 +280,34 @@ class MySQLDatabaseProvider implements DatabaseProvider {
     console.log('Connecting to MySQL database using host:', process.env.DB_HOST || 'localhost');
     try {
       const mysql = await import('mysql2/promise' as any);
-      this.connection = await mysql.createPool({
-        host: process.env.DB_HOST || 'localhost',
-        port: parseInt(process.env.DB_PORT || '3306'),
-        user: process.env.DB_USER || 'root',
-        password: process.env.DB_PASSWORD || 'root',
-        database: process.env.DB_NAME || 'sigup_db',
-      });
-      console.log('Successfully connected to MySQL Pool [Lazy loaded mysql2].');
+      
+      let retries = 5;
+      while (retries > 0) {
+        try {
+          this.connection = await mysql.createPool({
+            host: process.env.DB_HOST || 'localhost',
+            port: parseInt(process.env.DB_PORT || '3306'),
+            user: process.env.DB_USER || 'root',
+            password: process.env.DB_PASSWORD || 'root',
+            database: process.env.DB_NAME || 'sigup_db',
+            waitForConnections: true,
+            connectionLimit: 10,
+            queueLimit: 0
+          });
+          
+          // Test query
+          await this.connection.query('SELECT 1');
+          console.log('Successfully connected to MySQL Pool [Lazy loaded mysql2].');
+          return;
+        } catch (connErr: any) {
+          retries--;
+          console.warn(`MySQL connection attempt failed: ${connErr.message}. Retries remaining: ${retries}`);
+          if (retries === 0) {
+            throw connErr;
+          }
+          await new Promise((res) => setTimeout(res, 3000));
+        }
+      }
     } catch (err: any) {
       console.error('Error connecting to MySQL database:', err.message);
       console.warn('Fallback: Simulator mode initialized.');
@@ -257,11 +318,20 @@ class MySQLDatabaseProvider implements DatabaseProvider {
     if (!this.connection) {
       throw new Error('MySQL connection pool not loaded. Check install: "npm install mysql2".');
     }
-    const [res] = await this.connection.execute(sql, params);
-    return {
-      id: (res as any).insertId || 0,
-      changes: (res as any).affectedRows || 0
-    };
+    try {
+      const [res] = await this.connection.execute(sql, params);
+      return {
+        id: (res as any).insertId || 0,
+        changes: (res as any).affectedRows || 0
+      };
+    } catch (err: any) {
+      // Swallowing ER_DUP_KEYNAME (error code 1061) to make index creation idempotent
+      if (err.errno === 1061 || (err.message && err.message.includes('Duplicate key name'))) {
+        console.log(`Swallowing MySQL duplicate index warning: ${err.message}`);
+        return { id: 0, changes: 0 };
+      }
+      throw err;
+    }
   }
 
   async all<T = any>(sql: string, params: any[] = []): Promise<T[]> {
@@ -286,7 +356,24 @@ class MySQLDatabaseProvider implements DatabaseProvider {
     let mySql = sql;
     // 1. Convert SQLite Auto-increment to MySQL
     mySql = mySql.replace(/INTEGER PRIMARY KEY AUTOINCREMENT/gi, 'INT AUTO_INCREMENT PRIMARY KEY');
-    // 2. Convert INSERT OR REPLACE to mysql REPLACE INTO
+    
+    // 2. Convert SQLite unique TEXT primary/index keys to VARCHAR(255) for index size/key constraints in MySQL
+    mySql = mySql.replace(/nis TEXT PRIMARY KEY/gi, 'nis VARCHAR(255) PRIMARY KEY');
+    mySql = mySql.replace(/id TEXT PRIMARY KEY/gi, 'id VARCHAR(255) PRIMARY KEY');
+    mySql = mySql.replace(/username TEXT UNIQUE/gi, 'username VARCHAR(255) UNIQUE');
+    mySql = mySql.replace(/username TEXT/gi, 'username VARCHAR(255)');
+    mySql = mySql.replace(/siswa_nis TEXT/gi, 'siswa_nis VARCHAR(255)');
+    mySql = mySql.replace(/nis TEXT/gi, 'nis VARCHAR(255)');
+    mySql = mySql.replace(/tanggal TEXT/gi, 'tanggal VARCHAR(255)');
+
+    // 3. Convert datetime('now') to NOW()
+    mySql = mySql.replace(/datetime\('now'\)/gi, 'NOW()');
+    mySql = mySql.replace(/datetime\('now'/gi, 'NOW(');
+
+    // 4. Remove "IF NOT EXISTS" from "CREATE INDEX" in MySQL (handled gracefully via Error 1061 swallowing too)
+    mySql = mySql.replace(/CREATE\s+(UNIQUE\s+)?INDEX\s+IF\s+NOT\s+EXISTS/gi, (_, unique) => `CREATE ${unique || ''}INDEX`);
+
+    // 5. Convert INSERT OR REPLACE to mysql REPLACE INTO
     mySql = mySql.replace(/INSERT OR REPLACE INTO/gi, 'REPLACE INTO');
     return mySql;
   }

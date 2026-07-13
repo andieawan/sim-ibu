@@ -204,7 +204,7 @@ export default function ProfileMenu({ user, onLogout, onClose, theme, onThemeCha
                 >
                   <div className="space-y-1 text-left w-full">
                     <div className="flex justify-between items-center">
-                      <span className="text-xs font-bold text-slate-200 block group-hover:text-blue-400 transition-colors">SIM-IBU v2.2.0-Stabil</span>
+                      <span className="text-xs font-bold text-slate-200 block group-hover:text-blue-400 transition-colors">SIM-IBU v2.3.0-Stabil</span>
                       <span className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-md text-[8px] font-extrabold uppercase font-mono tracking-wider">Aktif</span>
                     </div>
                     <p className="text-[10px] text-slate-400 leading-relaxed font-semibold">

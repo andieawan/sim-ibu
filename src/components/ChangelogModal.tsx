@@ -19,9 +19,33 @@ export default function ChangelogModal({ isOpen, onClose, theme }: ChangelogModa
   // Log pembaruan terstruktur untuk mengedukasi pengguna dan memperlihatkan profesionalitas
   const logs = [
     {
-      version: 'v2.2.0 (Stabil)',
-      date: '25 Juni 2026',
+      version: 'v2.3.0 (Stabil)',
+      date: '13 Juli 2026',
       badge: 'Terbaru',
+      badgeColor: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+      description: 'Dukungan containerisasi modern dengan Docker & Docker Compose, robustifikasi Multi-Engine Database, serta penyelarasan penamaan versi aplikasi.',
+      changes: [
+        {
+          type: 'fitur',
+          title: 'Docker & Docker Compose',
+          desc: 'Menambahkan Dockerfile multi-stage yang ramping (alpine) dan docker-compose.yml sebagai opsi deployment kontainer yang andal, portabel, dan siap produksi.'
+        },
+        {
+          type: 'fitur',
+          title: 'Peningkatan Multi-Engine Database',
+          desc: 'Optimasi koneksi tangguh dengan mekanisme auto-retry/backoff singkat untuk engine MySQL & PostgreSQL saat inisialisasi server untuk mencegah kegagalan start.'
+        },
+        {
+          type: 'perbaikan',
+          title: 'Sinkronisasi Versi & Pembersihan Data',
+          desc: 'Penyelarasan nomor rilis SIM-IBU v2.3.0 secara konsisten di seluruh antarmuka sistem dan penyempurnaan fitur pembersihan data otomatis pada mode publik.'
+        }
+      ]
+    },
+    {
+      version: 'v2.2.0',
+      date: '25 Juni 2026',
+      badge: 'Stabil',
       badgeColor: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
       description: 'Peningkatan besar pada sistem informasi kesiswaan interaktif, penyesuaian visual Light/Dark Mode yang ultra-responsif, serta optimasi layar sentuh (Touch-First).',
       changes: [
@@ -217,7 +241,7 @@ export default function ChangelogModal({ isOpen, onClose, theme }: ChangelogModa
           {/* Footer Info */}
           <div className="p-4 bg-slate-950/20 border-t border-slate-100 dark:border-slate-850 text-center">
             <p className="text-[9px] text-slate-500 font-bold font-mono uppercase tracking-wider">
-              SIM-IBU &bull; SISTEM INFORMASI MONITOR &bull; VERSI 2.2.0 STABIL
+              SIM-IBU &bull; SISTEM INFORMASI MONITOR &bull; VERSI 2.3.0 STABIL
             </p>
           </div>
         </motion.div>

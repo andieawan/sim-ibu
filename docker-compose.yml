@@ -1,0 +1,74 @@
+version: '3.8'
+
+# ============================================================================
+# SIM-IBU Docker Compose Configuration (Default: App + MySQL)
+# ============================================================================
+
+services:
+  # 1. Service Utama: Aplikasi Node.js SIM-IBU
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sim-ibu-app
+    restart: always
+    ports:
+      - "3000:3000"
+    # Menghubungkan variabel environment dari file .env di host ke dalam container
+    environment:
+      - DB_TYPE=${DB_TYPE:-mysql}
+      - DB_HOST=db                            # Host menunjuk ke nama service database 'db' di jaringan internal Docker
+      - DB_PORT=${DB_PORT:-3306}
+      - DB_USER=${DB_USER:-root}
+      - DB_PASSWORD=${DB_PASSWORD:-your_secure_db_password}
+      - DB_NAME=${DB_NAME:-sigup_db}
+      - DEFAULT_ADMIN_PASSWORD=${DEFAULT_ADMIN_PASSWORD:-admin123}
+      - DEFAULT_GURU_PASSWORD=${DEFAULT_GURU_PASSWORD:-guru123}
+      - DEFAULT_ORTU_PASSWORD=${DEFAULT_ORTU_PASSWORD:-ortu123}
+      - COOKIE_PASSWORD=${COOKIE_PASSWORD}
+      - APP_ENV=${APP_ENV:-dev}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    depends_on:
+      db:
+        condition: service_healthy            # Memastikan database mysql sudah siap menerima koneksi sebelum app berjalan
+    networks:
+      - sim-ibu-net
+
+  # 2. Service Database: MySQL Server 8.0
+  db:
+    image: mysql:8.0
+    container_name: sim-ibu-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-your_secure_db_password}
+      MYSQL_DATABASE: ${DB_NAME:-sigup_db}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sim-ibu-net
+
+# Volume persisten untuk menjamin data MySQL tidak hilang saat container mati/direstart
+volumes:
+  mysql_data:
+
+# Network terisolasi untuk komunikasi aman antar container
+networks:
+  sim-ibu-net:
+    driver: bridge
+
+# ============================================================================
+# PETUNJUK DEPLOYMENT DENGAN SQLITE:
+# Jika ingin mendeploy HANYA menggunakan SQLite lokal tanpa database server MySQL,
+# Anda dapat menggunakan file konfigurasi "docker-compose.sqlite.yml" dengan perintah:
+#
+#   docker compose -f docker-compose.sqlite.yml up -d
+#
+# Selengkapnya silakan baca dokumentasi di DEPLOYMENT.md!
+# ============================================================================

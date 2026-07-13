@@ -1,0 +1,25 @@
+# Exclude node modules and local build artifacts
+node_modules
+dist
+.git
+.github
+.env
+.env.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Exclude existing SQLite local databases to prevent shipping stale/development records
+server/data/*.db
+server/data/*.db-journal
+server/data/*.db-shm
+server/data/*.db-wal
+
+# Exclude development system backups and IDE states
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

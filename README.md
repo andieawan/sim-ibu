@@ -55,19 +55,21 @@ Sistem Informasi Manajemen modern berskala produksi (Production-Ready) yang dira
 ## ⚙️ Sistem Kebutuhan (System Requirements)
 
 ### 1. Perangkat Lunak (Software)
-* **Runtime**: Node.js v18.x atau v20.x atau versi di atasnya (Rekomendasi LTS).
+* **Runtime**: Node.js v18.x atau v20.x atau versi di atasnya (Rekomendasi LTS), atau **Docker / Docker Compose** untuk containerisasi.
 * **Package Manager**: NPM v9.x atau v10.x.
 * **Browser**: Chrome, Safari, Edge, Firefox versi terbaru (Mendukung standar PWA dan media query `prefers-color-scheme`).
 
 ### 2. Database Pendukung (Disesuaikan via `.env`)
-* **Pengembangan (Development)**: SQLite3 (Tanpa instalasi server tambahan, otomatis menghasilkan file `sekolah.db`).
-* **Produksi (Production)**: MySQL v8.0+ ATAU PostgreSQL v14.0+.
+Aplikasi ini menggunakan **Database Provider (Factory Pattern)** yang sangat fleksibel. Anda dapat memilih salah satu dari tiga database engine berikut tanpa mengubah kode sumber:
+* **SQLite (Default)**: Sangat cocok untuk VPS kecil, demo, atau pengembangan lokal (otomatis menghasilkan berkas di `server/data/sekolah.db`).
+* **MySQL**: Mendukung MySQL v8.0+ untuk kebutuhan beban produksi yang tinggi.
+* **PostgreSQL**: Mendukung PostgreSQL v14.0+ untuk skalabilitas enterprise.
 
 ---
 
 ## 🚀 Panduan Instalasi & Cara Menjalankan
 
-Ikuti langkah-langkah di bawah ini untuk memasang SIM-IBU di lingkungan lokal Anda:
+Ikuti langkah-langkah di bawah ini untuk memasang SIM-IBU di lingkungan lokal atau server Anda:
 
 ### Langkah 1: Kloning & Masuk ke Direktori
 ```bash
@@ -80,41 +82,46 @@ Salin berkas contoh konfigurasi yang disediakan:
 ```bash
 cp .env.example .env
 ```
-Buka file `.env` dan sesuaikan parameter berikut:
-```env
-PORT=3000
-NODE_ENV=development
+Buka file `.env` dan sesuaikan parameter sesuai engine database pilihan Anda (SQLite, MySQL, atau PostgreSQL).
 
-# Pilihan DB_TYPE: sqlite, mysql, postgresql
-DB_TYPE=sqlite
-DB_FILE=sekolah.db
+---
 
-# Kunci Keamanan Sesi (Minimal 32 karakter)
-SESSION_SECRET=ganti_dengan_kunci_rahasia_dan_panjang_anda
-```
+## 📦 Pilihan Skenario Deployment & Menjalankan Aplikasi
 
-### Langkah 3: Instalasi Dependensi Paket
-Unduh dan pasang semua dependensi npm yang dideklarasikan di `package.json`:
+Aplikasi SIM-IBU mendukung berbagai opsi deployment modern. Penjelasan detail lengkap beserta langkah-langkah operasionalnya dapat Anda baca di berkas dokumentasi **[DEPLOYMENT.md](./DEPLOYMENT.md)**. Berikut ringkasan ringkasnya:
+
+### 💡 Skenario A: VPS Manual + SQLite (Paling Sederhana)
+Tanpa perlu instalasi server database eksternal. Sangat cepat untuk pengujian:
 ```bash
 npm install
-```
-
-### Langkah 4: Jalankan Server Pengembangan (Development Mode)
-Jalankan server Express beserta bundling aset Vite secara real-time:
-```bash
-npm run dev
-```
-Buka browser Anda dan akses halaman: `http://localhost:3000`.
-
-### Langkah 5: Bangun Aplikasi untuk Produksi (Production Build)
-Untuk merilis aplikasi di server produksi dengan kecepatan muat maksimal:
-```bash
-# Melakukan kompilasi React ke folder dist/ dan kompilasi backend Express ke server.cjs
 npm run build
-
-# Menjalankan aplikasi dalam mode produksi stabil
 npm start
 ```
+
+### 🔌 Skenario B: VPS Manual + MySQL atau PostgreSQL Eksternal
+Menggunakan database mandiri yang sudah terpasang di host atau server cloud terpisah:
+1. Atur `DB_TYPE=mysql` atau `DB_TYPE=postgres` di `.env` beserta kredensial server Anda.
+2. Jalankan:
+   ```bash
+   npm install
+   npm run build
+   npm start
+   ```
+
+### 🐳 Skenario C: Docker Compose (Aplikasi & Database Terisolasi)
+Skenario terbaik untuk isolasi penuh dan kemudahan manajemen container.
+
+* **Opsi 1: Docker Compose + MySQL (Default)**
+  Menjalankan container aplikasi SIM-IBU dan container database MySQL secara bersamaan:
+  ```bash
+  docker compose up -d --build
+  ```
+
+* **Opsi 2: Docker Compose + SQLite (Single Container)**
+  Menjalankan container aplikasi mandiri dengan SQLite di mana datanya tetap persisten di-mount di host:
+  ```bash
+  docker compose -f docker-compose.sqlite.yml up -d --build
+  ```
 
 ---
 
