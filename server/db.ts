@@ -625,90 +625,123 @@ export async function initializeDatabase() {
     }
     // === AKHIR DARI PROSES MIGRASI ===
 
+    // ============================================================================
+    // MODE PRODUKSI (APP_ENV=pub): PEMBERSIHAN DATA PADA SETIAP RESTART
+    // Maksud Bisnis: Jika aplikasi diatur ke mode 'pub', semua data rekayasa atau data
+    // lama di database akan dihapus bersih saat server dimulai ulang, sehingga aplikasi
+    // selalu dalam kondisi fresh dan siap digunakan untuk input data rill.
+    // ============================================================================
+    const envSetting = (process.env.APP_ENV || 'dev').toLowerCase().trim();
+    const isPubMode = envSetting === 'pub' || envSetting === 'publish';
+    if (isPubMode) {
+      console.log('--- RESTART DALAM MODE PRODUKSI (APP_ENV=pub) ---');
+      console.log('Membersihkan seluruh tabel data agar siap untuk input data baru rill...');
+      try {
+        await dbRun("DELETE FROM detail_nilai");
+        await dbRun("DELETE FROM aktivitas_nilai");
+        await dbRun("DELETE FROM detail_absensi");
+        await dbRun("DELETE FROM absensi");
+        await dbRun("DELETE FROM catatan_walikelas");
+        await dbRun("DELETE FROM surat_bk");
+        await dbRun("DELETE FROM jadwal");
+        await dbRun("DELETE FROM siswa");
+        await dbRun("DELETE FROM kelas");
+        await dbRun("DELETE FROM pengguna");
+        await dbRun("DELETE FROM patches");
+        console.log('Seluruh tabel berhasil dibersihkan.');
+      } catch (cleanError: any) {
+        console.error('Gagal membersihkan tabel data:', cleanError.message);
+      }
+    }
+
     // Seed initial users if table is empty
     const adminCount = await dbGet<{ count: number }>('SELECT COUNT(*) as count FROM pengguna WHERE username = ?', ['admin']);
-    const guruCount = await dbGet<{ count: number }>('SELECT COUNT(*) as count FROM pengguna WHERE username = ?', ['guru']);
-    const ortuCount = await dbGet<{ count: number }>('SELECT COUNT(*) as count FROM pengguna WHERE username = ?', ['ortu']);
-    const bkUserCount = await dbGet<{ count: number }>('SELECT COUNT(*) as count FROM pengguna WHERE username = ?', ['bk']);
-    const kajurUserCount = await dbGet<{ count: number }>('SELECT COUNT(*) as count FROM pengguna WHERE username = ?', ['kajur']);
-    const kepsekUserCount = await dbGet<{ count: number }>('SELECT COUNT(*) as count FROM pengguna WHERE username = ?', ['kepsek']);
-
-    const defaultPass = bcrypt.hashSync('guru123', 10);
-    const parentPass = bcrypt.hashSync('ortu123', 10);
-
+    
     if (adminCount?.count === 0) {
       const adminPass = bcrypt.hashSync(process.env.DEFAULT_ADMIN_PASSWORD || 'admin123', 10);
       await dbRun("INSERT INTO pengguna (username, password, nama, role) VALUES ('admin', ?, 'Administrator Utama', 'admin')", [adminPass]);
     }
-    if (guruCount?.count === 0) {
-      await dbRun("INSERT INTO pengguna (username, password, nama, role, nip, jabatan) VALUES ('guru', ?, 'Budi Santoso, S.Pd.', 'guru', '198402112009031002', 'Guru Matematika')", [defaultPass]);
-    }
-    
-    // Tambahan Guru-guru lain untuk simulasi realistik banyak kelas dan mata pelajaran
-    const extraGurus = [
-      { username: 'guru2', nama: 'Siti Rahma, S.Pd.', role: 'guru', nip: '198805232014022003', jabatan: 'Guru DKV / Wali Kelas' },
-      { username: 'guru3', nama: 'Andi Wijaya, S.Kom.', role: 'guru', nip: '199211042019031005', jabatan: 'Guru RPL / Produktif' },
-      { username: 'guru4', nama: 'Dewi Lestari, M.Pd.', role: 'guru', nip: '198509152011012004', jabatan: 'Guru Akuntansi' },
-      { username: 'guru5', nama: 'Ahmad Farhan, S.Pd.', role: 'guru', nip: '199008222016021008', jabatan: 'Guru Bisnis Digital' },
-    ];
-    for (const g of extraGurus) {
-      const exists = await dbGet<{ count: number }>('SELECT COUNT(*) as count FROM pengguna WHERE username = ?', [g.username]);
-      if (exists?.count === 0) {
-        await dbRun("INSERT INTO pengguna (username, password, nama, role, nip, jabatan) VALUES (?, ?, ?, ?, ?, ?)", [g.username, defaultPass, g.nama, g.role, g.nip, g.jabatan]);
+
+    if (!isPubMode) {
+      const guruCount = await dbGet<{ count: number }>('SELECT COUNT(*) as count FROM pengguna WHERE username = ?', ['guru']);
+      const ortuCount = await dbGet<{ count: number }>('SELECT COUNT(*) as count FROM pengguna WHERE username = ?', ['ortu']);
+      const bkUserCount = await dbGet<{ count: number }>('SELECT COUNT(*) as count FROM pengguna WHERE username = ?', ['bk']);
+      const kajurUserCount = await dbGet<{ count: number }>('SELECT COUNT(*) as count FROM pengguna WHERE username = ?', ['kajur']);
+      const kepsekUserCount = await dbGet<{ count: number }>('SELECT COUNT(*) as count FROM pengguna WHERE username = ?', ['kepsek']);
+
+      const defaultPass = bcrypt.hashSync('guru123', 10);
+      const parentPass = bcrypt.hashSync('ortu123', 10);
+
+      if (guruCount?.count === 0) {
+        await dbRun("INSERT INTO pengguna (username, password, nama, role, nip, jabatan) VALUES ('guru', ?, 'Budi Santoso, S.Pd.', 'guru', '198402112009031002', 'Guru Matematika')", [defaultPass]);
       }
-    }
-
-    if (ortuCount?.count === 0) {
-      await dbRun("INSERT INTO pengguna (username, password, nama, role, kelas_id) VALUES ('ortu', ?, 'Wali Murid Kelas X DKV 1', 'wali_murid', 1)", [parentPass]);
-    }
-
-    // Tambahan Wali Murid (Parents) lain untuk sinkronisasi monitoring
-    const extraParents = [
-      { username: 'ortu2', nama: 'Subagyo (Orang Tua Kevin)', role: 'wali_murid', kelas_id: 2 },
-      { username: 'ortu3', nama: 'Herianto (Orang Tua Clara)', role: 'wali_murid', kelas_id: 3 },
-      { username: 'ortu4', nama: 'Yusuf S. (Orang Tua Maudy)', role: 'wali_murid', kelas_id: 4 },
-      { username: 'ortu5', nama: 'Rudi Hermawan (Orang Tua Dimas)', role: 'wali_murid', kelas_id: 5 },
-    ];
-    for (const p of extraParents) {
-      const exists = await dbGet<{ count: number }>('SELECT COUNT(*) as count FROM pengguna WHERE username = ?', [p.username]);
-      if (exists?.count === 0) {
-        await dbRun("INSERT INTO pengguna (username, password, nama, role, kelas_id) VALUES (?, ?, ?, ?, ?)", [p.username, parentPass, p.nama, p.role, p.kelas_id]);
+      
+      // Tambahan Guru-guru lain untuk simulasi realistik banyak kelas dan mata pelajaran
+      const extraGurus = [
+        { username: 'guru2', nama: 'Siti Rahma, S.Pd.', role: 'guru', nip: '198805232014022003', jabatan: 'Guru DKV / Wali Kelas' },
+        { username: 'guru3', nama: 'Andi Wijaya, S.Kom.', role: 'guru', nip: '199211042019031005', jabatan: 'Guru RPL / Produktif' },
+        { username: 'guru4', nama: 'Dewi Lestari, M.Pd.', role: 'guru', nip: '198509152011012004', jabatan: 'Guru Akuntansi' },
+        { username: 'guru5', nama: 'Ahmad Farhan, S.Pd.', role: 'guru', nip: '199008222016021008', jabatan: 'Guru Bisnis Digital' },
+      ];
+      for (const g of extraGurus) {
+        const exists = await dbGet<{ count: number }>('SELECT COUNT(*) as count FROM pengguna WHERE username = ?', [g.username]);
+        if (exists?.count === 0) {
+          await dbRun("INSERT INTO pengguna (username, password, nama, role, nip, jabatan) VALUES (?, ?, ?, ?, ?, ?)", [g.username, defaultPass, g.nama, g.role, g.nip, g.jabatan]);
+        }
       }
-    }
-    
-    // Add BK, Kajur, Kepsek users if they don't exist in the system (checked by username)
-    if (bkUserCount?.count === 0) {
-      const bkPass = bcrypt.hashSync('bk123', 10);
-      await dbRun("INSERT INTO pengguna (username, password, nama, role, nip, jabatan) VALUES ('bk', ?, 'Dra. Siska Putri, M.Psi', 'bk', '197906142005012001', 'Koordinator BK')", [bkPass]);
-    }
-    // Tambahan BK ke-2
-    const bk2Exists = await dbGet<{ count: number }>('SELECT COUNT(*) as count FROM pengguna WHERE username = ?', ['bk2']);
-    if (bk2Exists?.count === 0) {
-      const bkPass = bcrypt.hashSync('bk123', 10);
-      await dbRun("INSERT INTO pengguna (username, password, nama, role, nip, jabatan) VALUES ('bk2', ?, 'Rian Hidayat, S.Psi', 'bk', '198710182015041002', 'Staf Konselor BK')", [bkPass]);
-    }
 
-    if (kajurUserCount?.count === 0) {
-      const kajurPass = bcrypt.hashSync('kajur123', 10);
-      await dbRun("INSERT INTO pengguna (username, password, nama, role, jurusan, nip, jabatan) VALUES ('kajur', ?, 'Irwan Hermawan, M.Sn', 'kajur', 'Desain Komunikasi Visual', '197501022001031003', 'Kajur DKV')", [kajurPass]);
-    }
-    // Tambahan Kajur Jurusan lain agar fleksibel
-    const extraKajurs = [
-      { username: 'kajur_bd', nama: 'H. Mulyadi, M.M.', role: 'kajur', jurusan: 'Bisnis Digital', jabatan: 'Kajur Bisnis Digital' },
-      { username: 'kajur_ak', nama: 'Sri Wahyuni, S.E., Ak.', role: 'kajur', jurusan: 'Akuntansi', jabatan: 'Kajur Akuntansi' },
-      { username: 'kajur_rpl', nama: 'Ferry Astika, S.Kom., M.T.', role: 'kajur', jurusan: 'Rekayasa Perangkat Lunak', jabatan: 'Kajur RPL' },
-    ];
-    for (const kj of extraKajurs) {
-      const exists = await dbGet<{ count: number }>('SELECT COUNT(*) as count FROM pengguna WHERE username = ?', [kj.username]);
-      if (exists?.count === 0) {
+      if (ortuCount?.count === 0) {
+        await dbRun("INSERT INTO pengguna (username, password, nama, role, kelas_id) VALUES ('ortu', ?, 'Wali Murid Kelas X DKV 1', 'wali_murid', 1)", [parentPass]);
+      }
+
+      // Tambahan Wali Murid (Parents) lain untuk sinkronisasi monitoring
+      const extraParents = [
+        { username: 'ortu2', nama: 'Subagyo (Orang Tua Kevin)', role: 'wali_murid', kelas_id: 2 },
+        { username: 'ortu3', nama: 'Herianto (Orang Tua Clara)', role: 'wali_murid', kelas_id: 3 },
+        { username: 'ortu4', nama: 'Yusuf S. (Orang Tua Maudy)', role: 'wali_murid', kelas_id: 4 },
+        { username: 'ortu5', nama: 'Rudi Hermawan (Orang Tua Dimas)', role: 'wali_murid', kelas_id: 5 },
+      ];
+      for (const p of extraParents) {
+        const exists = await dbGet<{ count: number }>('SELECT COUNT(*) as count FROM pengguna WHERE username = ?', [p.username]);
+        if (exists?.count === 0) {
+          await dbRun("INSERT INTO pengguna (username, password, nama, role, kelas_id) VALUES (?, ?, ?, ?, ?)", [p.username, parentPass, p.nama, p.role, p.kelas_id]);
+        }
+      }
+      
+      // Add BK, Kajur, Kepsek users if they don't exist in the system (checked by username)
+      if (bkUserCount?.count === 0) {
+        const bkPass = bcrypt.hashSync('bk123', 10);
+        await dbRun("INSERT INTO pengguna (username, password, nama, role, nip, jabatan) VALUES ('bk', ?, 'Dra. Siska Putri, M.Psi', 'bk', '197906142005012001', 'Koordinator BK')", [bkPass]);
+      }
+      // Tambahan BK ke-2
+      const bk2Exists = await dbGet<{ count: number }>('SELECT COUNT(*) as count FROM pengguna WHERE username = ?', ['bk2']);
+      if (bk2Exists?.count === 0) {
+        const bkPass = bcrypt.hashSync('bk123', 10);
+        await dbRun("INSERT INTO pengguna (username, password, nama, role, nip, jabatan) VALUES ('bk2', ?, 'Rian Hidayat, S.Psi', 'bk', '198710182015041002', 'Staf Konselor BK')", [bkPass]);
+      }
+
+      if (kajurUserCount?.count === 0) {
         const kajurPass = bcrypt.hashSync('kajur123', 10);
-        await dbRun("INSERT INTO pengguna (username, password, nama, role, jurusan, jabatan) VALUES (?, ?, ?, ?, ?, ?)", [kj.username, kajurPass, kj.nama, kj.role, kj.jurusan, kj.jabatan]);
+        await dbRun("INSERT INTO pengguna (username, password, nama, role, jurusan, nip, jabatan) VALUES ('kajur', ?, 'Irwan Hermawan, M.Sn', 'kajur', 'Desain Komunikasi Visual', '197501022001031003', 'Kajur DKV')", [kajurPass]);
       }
-    }
+      // Tambahan Kajur Jurusan lain agar fleksibel
+      const extraKajurs = [
+        { username: 'kajur_bd', nama: 'H. Mulyadi, M.M.', role: 'kajur', jurusan: 'Bisnis Digital', jabatan: 'Kajur Bisnis Digital' },
+        { username: 'kajur_ak', nama: 'Sri Wahyuni, S.E., Ak.', role: 'kajur', jurusan: 'Akuntansi', jabatan: 'Kajur Akuntansi' },
+        { username: 'kajur_rpl', nama: 'Ferry Astika, S.Kom., M.T.', role: 'kajur', jurusan: 'Rekayasa Perangkat Lunak', jabatan: 'Kajur RPL' },
+      ];
+      for (const kj of extraKajurs) {
+        const exists = await dbGet<{ count: number }>('SELECT COUNT(*) as count FROM pengguna WHERE username = ?', [kj.username]);
+        if (exists?.count === 0) {
+          const kajurPass = bcrypt.hashSync('kajur123', 10);
+          await dbRun("INSERT INTO pengguna (username, password, nama, role, jurusan, jabatan) VALUES (?, ?, ?, ?, ?, ?)", [kj.username, kajurPass, kj.nama, kj.role, kj.jurusan, kj.jabatan]);
+        }
+      }
 
-    if (kepsekUserCount?.count === 0) {
-      const kepsekPass = bcrypt.hashSync('kepsek123', 10);
-      await dbRun("INSERT INTO pengguna (username, password, nama, role, nip, jabatan) VALUES ('kepsek', ?, 'Dr. H. Ahmad Sunarto, M.Pd.', 'kepsek', '196803151992031005', 'Kepala Sekolah')", [kepsekPass]);
+      if (kepsekUserCount?.count === 0) {
+        const kepsekPass = bcrypt.hashSync('kepsek123', 10);
+        await dbRun("INSERT INTO pengguna (username, password, nama, role, nip, jabatan) VALUES ('kepsek', ?, 'Dr. H. Ahmad Sunarto, M.Pd.', 'kepsek', '196803151992031005', 'Kepala Sekolah')", [kepsekPass]);
+      }
     }
 
     // Migrate any existing plaintext passwords inside the database
