@@ -6,11 +6,11 @@ Sistem Informasi Manajemen modern berskala produksi (Production-Ready) yang dira
 
 ## 📌 Deskripsi Proyek
 
-**SIM-IBU** (Sistem Informasi Monitor Ibu) v2.2.0-STABLE adalah solusi satu pintu bagi Guru, Wali Kelas, Wali Murid, dan Administrator untuk mengelola kegiatan belajar mengajar secara transparan, aman, dan real-time. Dengan desain antarmuka adaptif (Auto Light/Dark Mode), sistem ini dapat diakses secara optimal dari perangkat desktop maupun telepon pintar (smartphone) sebagai aplikasi Progressive Web App (PWA) mandiri.
+**SIM-IBU** (Sistem Informasi Monitor Ibu) v2.3.0-STABLE adalah solusi satu pintu bagi Guru, Wali Kelas, Wali Murid, dan Administrator untuk mengelola kegiatan belajar mengajar secara transparan, aman, dan real-time. Dengan desain antarmuka adaptif (Auto Light/Dark Mode), sistem ini dapat diakses secara optimal dari perangkat desktop maupun telepon pintar (smartphone) sebagai aplikasi Progressive Web App (PWA) mandiri.
 
 ---
 
-## 🛠️ Fitur-Fitur Utama (SIM-IBU v2.2.0-STABLE)
+## 🛠️ Fitur-Fitur Utama (SIM-IBU v2.3.0-STABLE)
 
 ### 1. 📋 Manajemen Absensi & Kehadiran Multi-Level
 * **Pencatatan Real-time (Guru Pengajar)**: Input presensi harian siswa langsung dari kelas (Hadir, Sakit, Izin, Alfa).
