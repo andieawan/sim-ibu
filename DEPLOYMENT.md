@@ -58,7 +58,7 @@ Skenario ini cocok untuk deployment di VPS polos di mana Anda ingin menggunakan 
      DB_TYPE=mysql
      DB_HOST=localhost            # Ubah ke IP Server jika DB berada di server lain
      DB_PORT=3306
-     DB_USER=root
+     DB_USER=sim_ibu_user
      DB_PASSWORD=password_mysql_anda
      DB_NAME=sigup_db
      ```
@@ -96,7 +96,7 @@ Menjalankan container aplikasi SIM-IBU dan container database MySQL secara bersa
    DB_TYPE=mysql
    DB_HOST=db                         # Wajib bernilai 'db' agar menunjuk ke service MySQL internal docker
    DB_PORT=3306
-   DB_USER=root
+   DB_USER=sim_ibu_user
    DB_PASSWORD=password_aman_mysql
    DB_NAME=sigup_db
    ```
@@ -110,7 +110,7 @@ Menjalankan container aplikasi SIM-IBU dan container database MySQL secara bersa
    ```
 
 ### Opsi 3B: Menggunakan Docker Compose + SQLite (Single Container)
-Menjalankan container SIM-IBU secara mandiri dengan SQLite, di mana direktori database SQLite di-mount ke host sehingga data aman dan persisten bahkan ketika container dihapus.
+Menjalankan container SIM-IBU secara mandiri dengan SQLite. Direktori database SQLite (`/app/server/data`) dan berkas konfigurasi sekolah (`/app/school_identity.json`) di-mount ke host secara persisten agar seluruh data sekolah, penjadwal pencadangan otomatis Google Sheets, dan status API aman dari kehilangan data.
 
 1. **Konfigurasi `.env`**:
    ```env

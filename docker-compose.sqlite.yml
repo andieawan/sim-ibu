@@ -13,14 +13,14 @@ services:
     restart: always
     ports:
       - "3000:3000"
+    # Mengimpor semua variabel lingkungan secara otomatis dari berkas .env
+    env_file:
+      - .env
+    # Melakukan override khusus untuk memastikan engine SQLite yang aktif
     environment:
       - DB_TYPE=sqlite
-      - DEFAULT_ADMIN_PASSWORD=${DEFAULT_ADMIN_PASSWORD:-admin123}
-      - DEFAULT_GURU_PASSWORD=${DEFAULT_GURU_PASSWORD:-guru123}
-      - DEFAULT_ORTU_PASSWORD=${DEFAULT_ORTU_PASSWORD:-ortu123}
-      - COOKIE_PASSWORD=${COOKIE_PASSWORD}
-      - APP_ENV=${APP_ENV:-dev}
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
     volumes:
       # Bind mount atau Named Volume untuk memastikan database SQLite sekolah.db tersimpan persisten di host
       - ./server/data:/app/server/data
+      # Bind mount untuk konfigurasi identitas sekolah & koordinat pencadangan otomatis Google Sheets
+      - ./school_identity.json:/app/school_identity.json
