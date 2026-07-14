@@ -144,6 +144,7 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
     grades: number;
     attendance: number;
     users: number;
+    db_type?: string;
   } | null>(null);
   const [loadingStats, setLoadingStats] = useState(false);
   const [systemAlert, setSystemAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -1162,7 +1163,23 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
               <Shield className="w-6 h-6 sm:w-7 sm:h-7 text-blue-400" />
             </div>
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-100 tracking-tight">Super <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">Admin</span></h1>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-100 tracking-tight">
+                  Super <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">Admin</span>
+                </h1>
+                {stats?.db_type && (
+                  <span className={`px-2.5 py-0.5 text-[10px] font-bold rounded-lg uppercase tracking-wider font-mono shadow-sm flex items-center gap-1.5 ${
+                    stats.db_type === 'sqlite'
+                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                      : stats.db_type === 'mysql'
+                      ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                      : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                  }`}>
+                    <Database className="w-3.5 h-3.5 animate-pulse" />
+                    {stats.db_type}
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-slate-400 mt-1">Konfigurasi Sistem &amp; Manajemen Data Induk</p>
             </div>
           </div>
@@ -1251,6 +1268,47 @@ export default function AdminView({ classes, onRefreshClasses, currentUser, onNa
           <span>Sistem</span>
         </button>
       </div>
+
+      {/* Database Connection Status Notice */}
+      {stats?.db_type && (
+        <div className="bg-[#161b22] border border-slate-800 p-4 rounded-3xl shadow-md flex items-start gap-3.5 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/2 rounded-full blur-2xl pointer-events-none" />
+          <div className={`p-2.5 rounded-2xl border shrink-0 ${
+            stats.db_type === 'sqlite'
+              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+              : stats.db_type === 'mysql'
+              ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+              : 'bg-purple-500/10 text-purple-400 border-purple-500/20'
+          }`}>
+            <Database className="w-5 h-5 animate-pulse" />
+          </div>
+          <div className="flex-1 space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-200">Database Engine Aktif:</span>
+              <span className={`px-2 py-0.5 text-[10px] font-extrabold rounded font-mono uppercase ${
+                stats.db_type === 'sqlite'
+                  ? 'bg-emerald-500/20 text-emerald-400'
+                  : stats.db_type === 'mysql'
+                  ? 'bg-blue-500/20 text-blue-400'
+                  : 'bg-purple-500/20 text-purple-400'
+              }`}>
+                {stats.db_type}
+              </span>
+            </div>
+            <p className="text-xs text-slate-450 leading-relaxed">
+              {stats.db_type === 'sqlite' && (
+                <>Sistem berjalan menggunakan basis data <strong className="text-emerald-400 font-bold">SQLite (Berkas Lokal)</strong>. Penyimpanan data bersifat mandiri di dalam kontainer. Sangat cocok untuk dev, testing, dan single-instance deployment.</>
+              )}
+              {stats.db_type === 'mysql' && (
+                <>Sistem berjalan menggunakan basis data <strong className="text-blue-400 font-bold">MySQL (Server Luar/Remote)</strong>. Data disinkronisasikan secara terpusat dengan skalabilitas tinggi, handal untuk beban kerja multi-instance.</>
+              )}
+              {stats.db_type === 'postgres' && (
+                <>Sistem berjalan menggunakan basis data <strong className="text-purple-400 font-bold">PostgreSQL (Server Luar/Remote)</strong>. Mendukung integritas data tingkat tinggi, transaksi enterprise, dan performa kueri kompleks.</>
+              )}
+            </p>
+          </div>
+        </div>
+      )}
 
       {adminTab === 'users' && <AdminUsersTab {...tabProps as any} />}
       {adminTab === 'catalog' && <AdminCatalogTab {...tabProps as any} />}

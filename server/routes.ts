@@ -8,7 +8,7 @@
 // ============================================================================
 
 import { Router } from 'express';
-import { db, dbRun, dbAll, dbGet, initializeDatabase } from './db';
+import { db, dbRun, dbAll, dbGet, initializeDatabase, activeProvider } from './db';
 import bcrypt from 'bcryptjs';
 import { getIronSession } from 'iron-session';
 import JSZip from 'jszip';
@@ -1773,7 +1773,8 @@ router.get('/admin/summary', async (req, res) => {
       students: studentCount?.count || 0,
       grades: gradeCount?.count || 0,
       attendance: attendanceCount?.count || 0,
-      users: userCount?.count || 0
+      users: userCount?.count || 0,
+      db_type: activeProvider.name
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -2250,19 +2251,35 @@ router.get('/system/diagnostics', async (req, res) => {
   try {
     const checks: any[] = [];
     
-    // 1. Cek Koneksi & Integritas SQLite
+    // 1. Cek Koneksi & Integritas Database (Dukungan Dinamis SQLite, MySQL, PostgreSQL)
     try {
-      const integrity = await dbGet<{ integrity_check: string }>('PRAGMA integrity_check');
-      checks.push({
-        komponen: 'Koneksi & Integritas Database',
-        status: integrity?.integrity_check === 'ok' ? 'sehat' : 'bermasalah',
-        detail: integrity?.integrity_check === 'ok' 
+      let isHealthy = false;
+      let detailMessage = '';
+      
+      if (activeProvider.name === 'sqlite') {
+        const integrity = await dbGet<{ integrity_check: string }>('PRAGMA integrity_check');
+        isHealthy = integrity?.integrity_check === 'ok';
+        detailMessage = isHealthy 
           ? 'Database SQLite sehat dan tidak ditemukan korupsi berkas.' 
-          : `Integritas database terganggu: ${integrity?.integrity_check}`
+          : `Integritas database SQLite terganggu: ${integrity?.integrity_check}`;
+      } else if (activeProvider.name === 'mysql') {
+        await dbGet('SELECT 1');
+        isHealthy = true;
+        detailMessage = 'Koneksi ke server database MySQL aktif dan stabil.';
+      } else if (activeProvider.name === 'postgres') {
+        await dbGet('SELECT 1');
+        isHealthy = true;
+        detailMessage = 'Koneksi ke server database PostgreSQL aktif dan stabil.';
+      }
+
+      checks.push({
+        komponen: `Koneksi Database (${activeProvider.name.toUpperCase()})`,
+        status: isHealthy ? 'sehat' : 'bermasalah',
+        detail: detailMessage
       });
     } catch (e: any) {
       checks.push({
-        komponen: 'Koneksi & Integritas Database',
+        komponen: `Koneksi Database (${activeProvider.name.toUpperCase()})`,
         status: 'rusak',
         detail: `Koneksi database gagal: ${e.message}`
       });
