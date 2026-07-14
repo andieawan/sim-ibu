@@ -156,7 +156,7 @@ class PostgreSQLDatabaseProvider implements DatabaseProvider {
       }
     } catch (err: any) {
       console.error('Error connecting to PostgreSQL database:', err.message);
-      console.warn('Fallback: Creating mock/local simulator client to avoid crash on start.');
+      throw err;
     }
   }
 
@@ -310,7 +310,7 @@ class MySQLDatabaseProvider implements DatabaseProvider {
       }
     } catch (err: any) {
       console.error('Error connecting to MySQL database:', err.message);
-      console.warn('Fallback: Simulator mode initialized.');
+      throw err;
     }
   }
 
@@ -387,10 +387,10 @@ const providers: Record<string, DatabaseProvider> = {
   mysql: new MySQLDatabaseProvider(),
 };
 
-const selectedDbType = (process.env.DB_TYPE || 'sqlite').toLowerCase();
-export const activeProvider = providers[selectedDbType] || providers.sqlite;
+const selectedDbType = (process.env.DB_TYPE || 'mysql').toLowerCase();
+export let activeProvider = providers[selectedDbType] || providers.sqlite;
 
-console.log(`Database engine loaded: [${activeProvider.name}] (Configured via DB_TYPE, default: sqlite)`);
+console.log(`Database engine loaded: [${activeProvider.name}] (Configured via DB_TYPE, default: mysql)`);
 
 // SQL promise wrappers for clean async/await with automatic query routing and translation
 export const dbRun = (sql: string, params: any[] = []): Promise<{ id: number; changes: number }> => {
@@ -408,7 +408,7 @@ export const dbGet = <T = any>(sql: string, params: any[] = []): Promise<T | und
   return activeProvider.get<T>(finalSql, params);
 };
 
-// Establish database connection on startup
+// Establish database connection on startup with automatic fallback to sqlite
 export function connectDatabase() {
   activeProvider.connect().then(() => {
     if (activeProvider.name !== 'sqlite') {
@@ -419,6 +419,16 @@ export function connectDatabase() {
     }
   }).catch((err) => {
     console.error(`Failed to establish database connection for provider: ${activeProvider.name}`, err);
+    if (activeProvider.name !== 'sqlite') {
+      console.warn(`[FALLBACK] Switching database engine from [${activeProvider.name}] to [sqlite] because of connection failure.`);
+      activeProvider = providers.sqlite;
+      // Connect to fallback sqlite
+      activeProvider.connect().then(() => {
+        console.log(`Fallback connection to better-sqlite3 database established successfully.`);
+      }).catch((fallbackErr) => {
+        console.error(`CRITICAL: Failed to establish connection to fallback sqlite database:`, fallbackErr);
+      });
+    }
   });
 }
 
