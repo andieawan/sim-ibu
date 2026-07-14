@@ -123,7 +123,48 @@ Menjalankan container SIM-IBU secara mandiri dengan SQLite. Direktori database S
 
 ---
 
+## 🌐 Skenario 4: Database di Server Terpisah (Remote Database)
+
+Jika Anda memiliki server database terpisah (misalnya AWS RDS, Google Cloud SQL, VPS khusus database, atau server bare-metal eksternal) dan ingin menghubungkan SIM-IBU ke server tersebut, ikuti langkah-langkah penting berikut demi kelancaran dan keamanan koneksi:
+
+### 1. Pengaturan di Server Database (Remote Server)
+Agar database dapat menerima koneksi dari server aplikasi SIM-IBU Anda:
+* **Ubah Bind Address**: Secara default, MySQL/PostgreSQL hanya mendengarkan koneksi lokal (`127.0.0.1`). Ubah konfigurasi database Anda (misalnya `mysqld.cnf` untuk MySQL atau `postgresql.conf` untuk PostgreSQL) agar mendengarkan IP publik/internal yang sesuai, atau gunakan `0.0.0.0` (mendengarkan semua interface).
+  ```ini
+  # Contoh pada MySQL (/etc/mysql/mysql.conf.d/mysqld.cnf)
+  bind-address = 0.0.0.0
+  ```
+* **Buat User & Berikan Hak Akses**: Buat user khusus SIM-IBU yang diizinkan terhubung dari IP Server Aplikasi Anda.
+  ```sql
+  -- Contoh SQL pada MySQL (Ganti IP_SERVER_APLIKASI dengan IP VPS SIM-IBU Anda)
+  CREATE USER 'sim_ibu_user'@'IP_SERVER_APLIKASI' IDENTIFIED BY 'password_aman_anda';
+  GRANT ALL PRIVILEGES ON sigup_db.* TO 'sim_ibu_user'@'IP_SERVER_APLIKASI';
+  FLUSH PRIVILEGES;
+  ```
+* **Konfigurasi Firewall**: Pastikan firewall (seperti UFW di Ubuntu, iptables, atau Security Group pada AWS/GCP) membuka port database (**3306** untuk MySQL, **5432** untuk PostgreSQL) **hanya untuk IP Server Aplikasi SIM-IBU Anda** demi keamanan maksimal.
+
+### 2. Pengaturan di Server Aplikasi SIM-IBU
+* **Ubah berkas `.env`**:
+  Sesuaikan `DB_HOST` dengan IP publik atau host domain dari server database Anda. Pastikan tidak lagi menggunakan `localhost` atau `127.0.0.1` (karena itu mengacu pada internal server aplikasi).
+  ```env
+  DB_TYPE=mysql                     # Atau 'postgres'
+  DB_HOST=192.168.10.50             # IP Publik/Internal Server Database Terpisah
+  DB_PORT=3306
+  DB_USER=sim_ibu_user
+  DB_PASSWORD=password_aman_anda
+  DB_NAME=sigup_db
+  ```
+
+### 3. Cara Menjalankan dengan Docker Compose (App Only)
+Jika Anda ingin menjalankan aplikasi SIM-IBU di dalam Docker, namun databasenya berada di luar (remote), Anda tidak perlu menjalankan container database lokal (`db`). Gunakan file konfigurasi `docker-compose.external.yml` yang sudah disediakan:
+```bash
+docker compose -f docker-compose.external.yml up -d --build
+```
+
+---
+
 ## 🐳 Perintah Docker yang Berguna
-* **Melihat log real-time**: `docker compose logs -f`
-* **Menghentikan container**: `docker compose down`
+* **Melihat log real-time**: `docker compose logs -f` (atau `docker compose -f docker-compose.sqlite.yml logs -f`)
+* **Menghentikan container**: `docker compose down` (atau `docker compose -f docker-compose.sqlite.yml down`)
 * **Restart aplikasi**: `docker compose restart app`
+

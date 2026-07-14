@@ -1,0 +1,22 @@
+version: '3.8'
+
+# ============================================================================
+# SIM-IBU Docker Compose Configuration (External / Remote Database Engine)
+# ============================================================================
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sim-ibu-app-external
+    restart: always
+    ports:
+      - "3000:3000"
+    # Mengimpor semua variabel lingkungan secara otomatis dari berkas .env
+    env_file:
+      - .env
+    # DB_HOST akan dibaca langsung dari berkas .env (yang berisi IP atau host remote DB)
+    volumes:
+      # Bind mount untuk konfigurasi identitas sekolah & koordinat pencadangan otomatis Google Sheets
+      - ./school_identity.json:/app/school_identity.json
